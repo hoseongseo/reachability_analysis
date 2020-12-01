@@ -1,11 +1,11 @@
-classdef LTV < SystemBase
+classdef LTV < Dynamics.Base
     properties (GetAccess = private, SetAccess = private)
         A
         D
     end
     methods
         function this = LTV(nx, nu, nw, Amat, Dmat)
-            this = this@SystemBase(nx,nu,nw);
+            this = this@Dynamics.Base(nx,nu,nw);
             this.A = Amat;
             this.D = Dmat;
         end

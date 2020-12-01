@@ -1,4 +1,4 @@
-classdef SystemBase
+classdef Base
     properties
         Nx;
         Nu;
@@ -9,7 +9,7 @@ classdef SystemBase
     end
     methods
         % basic constructor
-        function this = SystemBase(nx, nu, nw)
+        function this = Base(nx, nu, nw)
             this.Nx = nx;
             this.Nu = nu;
             this.Nw = nw;

@@ -1,10 +1,10 @@
-classdef LotkaVolterra < SystemBase
+classdef LotkaVolterra < Dynamics.Base
     properties (GetAccess = private, SetAccess = private)
         wMax;
     end
     methods
         function this = LotkaVolterra(wMax)
-            this = this@SystemBase(2,1,1);
+            this = this@Dynamics.Base(2,1,1);
             this.wMax = wMax;
         end
         % overloading dynamics
