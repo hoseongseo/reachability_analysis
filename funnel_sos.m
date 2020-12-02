@@ -1,4 +1,4 @@
-function Q_funnel = funnel_sos( sys, t, Q, rho, maxIter, ftol )
+function [Q_step1, Q_step2] = funnel_sos( sys, t, Q, rho, maxIter, ftol )
 solver_opt.solver = 'sedumi';
 
 nx = sys.Nx;
@@ -277,20 +277,22 @@ for iter = 1:maxIter
     for k = round(linspace(1,N,11))
         % STEP1
         Q_sos_ = inv(double(sosgetsol(step1, S{k})));
-        tmp = sys.xN(:,k) + Q_sos_^(1/2)*Math.Sphere(nx-1,100).x;
-        h1 = plot(tmp(1,:), tmp(2,:), 'b', 'linewidth', 2);
+        tmp = Q_sos_^(1/2)*Math.Sphere(nx-1,100).x;
+        h1 = plot3(tmp(1,:), t(k)*ones(1,size(tmp,2)), tmp(2,:), 'b', 'linewidth', 2);
   
         % STEP2
         Q_sos_ = inv(double(sosgetsol(step2, R{k})));
-        tmp = sys.xN(:,k) + Q_sos_^(1/2)*Math.Sphere(nx-1,100).x;
-        h2 = plot(tmp(1,:), tmp(2,:), 'r--', 'linewidth', 2);
+        tmp = Q_sos_^(1/2)*Math.Sphere(nx-1,100).x;
+        h2 = plot3(tmp(1,:), t(k)*ones(1,size(tmp,2)), tmp(2,:), 'r--', 'linewidth', 2);
     end
+    view([128,11])
     legend([h1,h2],...
         '$\mathcal{F}(t)$ (Step 1)',...
         '$\mathcal{F}(t)$ (Step 2)',...
         'location', 'southeast');
     xlabel('$x_1$')
-    ylabel('$x_2$')
+    ylabel('$t$ [s]')
+    zlabel('$x_2$')
     
     figure(34)
     subplot(2,1,1)
@@ -312,14 +314,17 @@ if iter == maxIter
     disp('Maximum iteration reached')
 end
 
-Q_funnel = zeros(nx,nx,N);
+Q_step1 = zeros(nx,nx,N);
+Q_step2 = zeros(nx,nx,N);
 if (res == 1) || (res == 3)
     for k = 1:N
-        Q_funnel(:,:,k) = inv(double(sosgetsol(step2, R{k})));
+        Q_step1(:,:,k) = inv(double(sosgetsol(step1, S{k})));
+        Q_step2(:,:,k) = inv(double(sosgetsol(step2, R{k})));
     end
 elseif res == 2
     % return the results of the previous step
     for k = 1:N
-        Q_funnel(:,:,k) = inv(R_prev(:,:,k));
+        Q_step1(:,:,k) = inv(S_prev(:,:,k));
+        Q_step2(:,:,k) = inv(R_prev(:,:,k));
     end
 end

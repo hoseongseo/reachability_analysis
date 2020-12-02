@@ -51,7 +51,7 @@ end
 
 %% Funnel (SOS Program)
 tic
-Q_sos = funnel_sos(...
+[Q_sos1, Q_sos2] = funnel_sos(...
     sys,... % system (polynomial dynamics)
     t,...   % time
     Q0,...  % initial shape matrix
@@ -62,16 +62,19 @@ toc
 
 %% 
 S = Utils.Sphere(1,200);
-F_sos = zeros([size(S.x), length(t)]);
+F_sos1 = zeros([size(S.x), length(t)]);
+F_sos2 = zeros([size(S.x), length(t)]);
 for i = 1:length(t)
-    F_sos(:,:,i) = Q_sos(:,:,i)^(1/2) * S.x;
+    F_sos1(:,:,i) = Q_sos1(:,:,i)^(1/2) * S.x;
+    F_sos2(:,:,i) = Q_sos2(:,:,i)^(1/2) * S.x;
 end
 
 %% plot
 figure;
 cla; hold on; grid on;
 plotSet(X, t, length(t), 'k', 0.7);
-plotSet(F_sos, t, length(t), 'g', 0.5);
+plotSet(F_sos1, t, length(t), 'g', 0.5);
+% plotSet(F_sos2, t, length(t), 'b', 0.5);
 % plotSet(xChar(:,:,local_idx), t(local_idx), length(local_idx), 'k', 0.5);
 view([128,11])
 camlight left

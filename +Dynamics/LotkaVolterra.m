@@ -45,12 +45,12 @@ classdef LotkaVolterra < Dynamics.Base
 %                 xt = this.xN(:,k1) + (this.xN(:,k2)-this.xN(:,k1))*(tq-this.tN(k1))/(this.tN(k2)-this.tN(k1));
 
                 % Choice 2: local integration
-%                 x0 = this.xN(:,k1);
-%                 xinteg = this.sys0.rk4_forward(x0, zeros(this.Nu,2), [this.tN(k1), tq]);
-%                 xt = xinteg(:,end);
+                x0 = this.xN(:,k1);
+                xinteg = this.sys0.rk4_forward(x0, zeros(this.Nu,2), [this.tN(k1), tq]);
+                xt = xinteg(:,end);
                 
                 % Choice 3: piecewise constant assump.
-                xt = this.xN(:,k1);
+%                 xt = this.xN(:,k1);
             elseif (k2 - k1) == 2
                 xt = this.xN(:,0.5*(k1+k2));
             elseif isempty(k1)
