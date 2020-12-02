@@ -5,9 +5,9 @@ addpath(genpath('3rd_party/SeDuMi_1_3')) % SDP solver
 
 %% Dynamics / initial set / disturbance
 % original equation
-f = @(x,w) [(w+3).*x(1,:).*(1-x(2,:)); (w+3).*x(2,:).*(x(1,:)-1)];
-dfdx = @(x,w) [(w+3)*(1-x(2)), -(w+3)*x(1); (w+3)*x(2), (w+3)*(x(1)-1)];
-dfdw = @(x,w) [x(1)*(1-x(2)); x(2)*(x(1)-1)];
+f = @(x,w) [(0.1*w+3).*x(1,:).*(1-x(2,:)); (0.1*w+3).*x(2,:).*(x(1,:)-1)];
+dfdx = @(x,w) [(0.1*w+3)*(1-x(2)), -(0.1*w+3)*x(1); (0.1*w+3)*x(2), (0.1*w+3)*(x(1)-1)];
+dfdw = @(x,w) 0.1*[x(1)*(1-x(2)); x(2)*(x(1)-1)];
 
 % transformed to local coordinate
 g = @(xb,w,x0) f(xb+x0,w) - f(x0,0); 
@@ -15,8 +15,7 @@ dgdx = @(xb,w,x0) dfdx(xb+x0,w);
 dgdw = @(xb,w,x0) dfdw(xb+x0,w);
 
 Q = diag([0.05; 0.05])^2; % initial set
-W = 2*[-0.05, 0.05]; % disturbance bound
-wgr = linspace(min(W), max(W), 11);
+wgr = linspace(-1, 1, 11);
 
 %% Reference generation
 t = linspace(0,1,10001); % this should be as precise as possible
@@ -120,9 +119,31 @@ end
 
 %% Funnel
 tic
-Q_funnel = invariant_funnel( t(local_idx), xNominal(:,local_idx), g, Q, max(W), 5.0, 21, 5e-4 );
+Q_sos = invariant_funnel( t(local_idx), xNominal(:,local_idx), g, Q, 1, 5.0, 21, 5e-4, xChar(:,:,local_idx) );
 toc
 
+%% plot
+S = Utils.Sphere(1,200);
+F_sos = zeros([size(S.x), length(local_idx)]);
+for i = 1:length(local_idx)
+    F_sos(:,:,i) = Q_sos(:,:,i)^(1/2) * S.x;
+end
+
+figure;
+cla; hold on; grid on;
+% h1 = plotSet(X, t, length(t), 'k', 0.7);
+plotSet(F_sos, t(local_idx), length(local_idx), 'g', 0.5);
+plotSet(xChar(:,:,local_idx), t(local_idx), length(local_idx), 'k', 0.5);
+view([128,11])
+camlight left
+camlight right
+xlabel('$x_1$')
+ylabel('$t$ [s]')
+zlabel('$x_2$')
+% ax = gca;
+% ax.XLabel.Position = [-0.1725, 2.1516, -3.3917];
+% ax.YLabel.Position = [2.2098, 0.9221, -3.5364];
+% legend([h1,h2], '$\underline{\mathcal{X}}(t)$', '$\mathcal{E}(Q_x(t))$', 'location', 'northwest')
 %% Proposed
 tk = t(local_idx);
 Ak = ANominal(:,:,local_idx);
