@@ -26,7 +26,7 @@ end
 
 %%%% HJB equation
 % grid for HJB equation
-nGrid = [101, 101];
+nGrid = [201, 201];
 minGrid = [-2.5, -2.5];
 maxGrid = [2.5, 2.5];
 gr = createGrid(minGrid, maxGrid, nGrid);

@@ -1,7 +1,8 @@
-function Q_funnel = funnel_sos( t, xNominal, f_poly, Q, nw, rho, maxIter, ftol, xChar )
+function Q_funnel = funnel_sos( sys, t, Q, rho, maxIter, ftol )
 solver_opt.solver = 'sedumi';
 
-nx = size(Q,1);
+nx = sys.Nx;
+nw = sys.Nw;
 
 N = length(t);
 
@@ -75,8 +76,6 @@ for iter = 1:maxIter
     
     obj1 = polynomial(0); % objective function
     for k = 1:N
-        xNominal_ = xNominal(:,k);
-        
         if step2_solved
             rho_ = sosgetsol(step2, rho{k});
             V_ = sosgetsol(step2, V{k});
@@ -112,7 +111,7 @@ for iter = 1:maxIter
             else
                 dV_dx_ = 2*inv(Q)*x;
             end
-            dV_ = dV_dt_ + dV_dx_'*f_poly(x,w,xNominal_);
+            dV_ = dV_dt_ + dV_dx_'*sys.f(x, zeros(sys.Nu,1), w, t(k));
             
             
             expr = drho_ - dV_ - L{k}*(V_ - rho_);
@@ -180,8 +179,6 @@ for iter = 1:maxIter
     
     obj2 = polynomial(0); % objective function
     for k = 1:N
-        xNominal_ = xNominal(:,k);
-        
         rho_ = rho{k};
         V_ = V{k};
         S_ = R{k};
@@ -202,7 +199,7 @@ for iter = 1:maxIter
             for i = 1:nx
                 dV_dx_ = [dV_dx_; diff(V_,x(i))];
             end
-            dV_ = dV_dt_ + dV_dx_'*f_poly(x,w,xNominal_);
+            dV_ = dV_dt_ + dV_dx_'*sys.f(x, zeros(sys.Nu,1), w, t(k));
             
             expr = drho_ - dV_ - sosgetsol(step1, L{k})*(V_ - rho_);
             for j = 1:nw
@@ -280,22 +277,18 @@ for iter = 1:maxIter
     for k = round(linspace(1,N,11))
         % STEP1
         Q_sos_ = inv(double(sosgetsol(step1, S{k})));
-        tmp = xNominal(:,k) + Q_sos_^(1/2)*Math.Sphere(nx-1,100).x;
+        tmp = sys.xN(:,k) + Q_sos_^(1/2)*Math.Sphere(nx-1,100).x;
         h1 = plot(tmp(1,:), tmp(2,:), 'b', 'linewidth', 2);
   
         % STEP2
         Q_sos_ = inv(double(sosgetsol(step2, R{k})));
-        tmp = xNominal(:,k) + Q_sos_^(1/2)*Math.Sphere(nx-1,100).x;
+        tmp = sys.xN(:,k) + Q_sos_^(1/2)*Math.Sphere(nx-1,100).x;
         h2 = plot(tmp(1,:), tmp(2,:), 'r--', 'linewidth', 2);
-        
-        % Characteristic eqn
-        tmp = repmat(xNominal(:,k), [1,size(xChar,2)]) + xChar(:,:,k);
-        h3 = plot(tmp(1,:), tmp(2,:), 'k--', 'linewidth', 2);
     end
-    legend([h1,h2,h3],...
+    legend([h1,h2],...
         '$\mathcal{F}(t)$ (Step 1)',...
         '$\mathcal{F}(t)$ (Step 2)',...
-        '$\mathcal{X}(t)$', 'location', 'southeast');
+        'location', 'southeast');
     xlabel('$x_1$')
     ylabel('$x_2$')
     
