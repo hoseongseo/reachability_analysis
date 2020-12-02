@@ -1,7 +1,7 @@
 clear; close all; clc;
 
-addpath(genpath('helperOC-master')) % HJB equation solver
-addpath(genpath('ToolboxLS'))
+addpath(genpath('3rd_party/helperOC-master')) % HJB equation solver
+addpath(genpath('3rd_party/ToolboxLS'))
 
 
 % given initial set
@@ -65,5 +65,5 @@ ax.YLabel.Position = [2.2098, 0.9221, -3.5364];
 legend([h1,h2], '$\underline{\mathcal{X}}(t)$', '$\mathcal{E}(Q_x(t))$', 'location', 'northwest')
 
 %%% remove added path
-rmpath(genpath('helperOC-master'))
-rmpath(genpath('ToolboxLS'))
+rmpath(genpath('3rd_party/helperOC-master'))
+rmpath(genpath('3rd_party/ToolboxLS'))
