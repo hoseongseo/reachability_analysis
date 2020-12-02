@@ -119,7 +119,7 @@ end
 
 %% Funnel
 tic
-Q_sos = invariant_funnel( t(local_idx), xNominal(:,local_idx), g, Q, 1, 5.0, 21, 5e-4, xChar(:,:,local_idx) );
+Q_sos = funnel_sos( t(local_idx), xNominal(:,local_idx), g, Q, 1, 5.0, 21, 5e-4, xChar(:,:,local_idx) );
 toc
 
 %% plot

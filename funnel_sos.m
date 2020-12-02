@@ -1,4 +1,4 @@
-function Q_funnel = invariant_funnel( t, xNominal, f_poly, Q, nw, rho, maxIter, ftol, xChar )
+function Q_funnel = funnel_sos( t, xNominal, f_poly, Q, nw, rho, maxIter, ftol, xChar )
 solver_opt.solver = 'sedumi';
 
 nx = size(Q,1);
