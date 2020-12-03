@@ -1,4 +1,4 @@
-clear; clc;
+clear; close all; clc;
 
 addpath(genpath('3rd_party/helperOC-master')) % HJB equation solver
 addpath(genpath('3rd_party/ToolboxLS'))
@@ -6,29 +6,30 @@ addpath(genpath('3rd_party/ToolboxLS'))
 addpath(genpath('3rd_party/SOSTOOLS')) % SOS programming solver
 addpath(genpath('3rd_party/SeDuMi_1_3')) % SDP solver (required for SOSTOOLS)
 
+% given initial set
+Q0 = diag([0.05; 0.05])^2;
 
-%% Dynamics / initial set / disturbance
-% original equation
+% disturbance bound
 wMax = 0.1;
-f = @(x,w) [(wMax*w+3).*x(1,:).*(1-x(2,:)); (wMax*w+3).*x(2,:).*(x(1,:)-1)];
-% dfdx = @(x,w) [(wMax*w+3)*(1-x(2)), -(wMax*w+3)*x(1);...
-%                (wMax*w+3)*x(2), (wMax*w+3)*(x(1)-1)];
-% dfdw = @(x,w) wMax*[x(1)*(1-x(2)); x(2)*(x(1)-1)];
 
-% transformed to local coordinate
-g = @(xb,w,x0) f(xb+x0,w) - f(x0,0);
-% dgdx = @(xb,w,x0) dfdx(xb+x0,w);
-% dgdw = @(xb,w,x0) dfdw(xb+x0,w);
+% sphere
+S = Utils.Sphere(1,200);
 
-Q0 = diag([0.05; 0.05])^2; % initial set
-
-%% Reference generation
+%% system
 t = linspace(0,1,101);
-
-%%
 sys0 = Dynamics.LotkaVolterraNominal;
 sys = Dynamics.LotkaVolterra(wMax, sys0, [1.2; 1.1], t);
 
+
+%% Funnel (proposed, LTV)
+funnel_ltv = FunnelLTV(sys, Q0, t);
+
+F_ltv = zeros([size(S.x), length(t)]);
+for i = 1:length(t)
+    F_ltv(:,:,i) = funnel_ltv.Q(:,:,i)^(1/2) * S.x;
+end
+
+%% HJB equation
 nGrid = [201, 201];
 minGrid = [-0.06, -0.06];
 maxGrid = [0.06, 0.06];
@@ -60,8 +61,7 @@ tic
     5e-4);  % convergence tolerance
 toc
 
-%% 
-S = Utils.Sphere(1,200);
+
 F_sos1 = zeros([size(S.x), length(t)]);
 F_sos2 = zeros([size(S.x), length(t)]);
 for i = 1:length(t)
@@ -69,11 +69,29 @@ for i = 1:length(t)
     F_sos2(:,:,i) = Q_sos2(:,:,i)^(1/2) * S.x;
 end
 
+%%
+figure(150)
+cla; hold on; grid on;
+for i = round(linspace(1,length(t),7))
+    
+    tmp = sys.xN(:,i) + F_sos1(:,:,i);
+    plot(tmp(1,:), tmp(2,:), 'g', 'linewidth', 2)
+    
+    tmp = sys.xN(:,i) + F_ltv(:,:,i);
+    plot(tmp(1,:), tmp(2,:), 'm', 'linewidth', 2)
+    
+    tmp = sys.xN(:,i) + X{i};
+    plot(tmp(1,:), tmp(2,:), 'k--', 'linewidth', 2)
+    
+    drawnow
+end
+
 %% plot
 figure;
 cla; hold on; grid on;
 plotSet(X, t, length(t), 'k', 0.7);
 plotSet(F_sos1, t, length(t), 'g', 0.5);
+plotSet(F_ltv, t, length(t), 'b', 0.5);
 % plotSet(F_sos2, t, length(t), 'b', 0.5);
 % plotSet(xChar(:,:,local_idx), t(local_idx), length(local_idx), 'k', 0.5);
 view([128,11])
