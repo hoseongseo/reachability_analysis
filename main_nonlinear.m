@@ -5,6 +5,12 @@ addpath(genpath('3rd_party/ToolboxLS'))
 addpath(genpath('3rd_party/SOSTOOLS')) % SOS programming solver
 addpath(genpath('3rd_party/SeDuMi_1_3')) % SDP solver (required for SOSTOOLS)
 
+set(groot, 'DefaultFigureColor', 'w')
+set(groot, 'DefaultLegendInterpreter', 'latex')
+set(groot, 'DefaultTextInterpreter', 'latex')
+set(groot, 'DefaultAxesTickLabelInterpreter', 'latex')
+set(groot, 'DefaultAxesFontSize', 16)
+
 % given initial set
 Q0 = diag([0.05; 0.05])^2;
 

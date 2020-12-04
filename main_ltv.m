@@ -3,6 +3,11 @@ clear; close all; clc;
 addpath(genpath('3rd_party/helperOC-master')) % HJB equation solver
 addpath(genpath('3rd_party/ToolboxLS'))
 
+set(groot, 'DefaultFigureColor', 'w')
+set(groot, 'DefaultLegendInterpreter', 'latex')
+set(groot, 'DefaultTextInterpreter', 'latex')
+set(groot, 'DefaultAxesTickLabelInterpreter', 'latex')
+set(groot, 'DefaultAxesFontSize', 16)
 
 % given initial set
 Q0 = diag([0.25, 0.25]);
