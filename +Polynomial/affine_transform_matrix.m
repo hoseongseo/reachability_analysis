@@ -17,8 +17,6 @@ for j = 2:length(n)
     x_prods = x_prods .* x_powers(j, I(:,j)+1);
 end
 
-% max_order = max(x_prods(end).order,[],1);
-
 full_order = x_prods(end).order;
 full_order_sum = sum(full_order,2);
 T = zeros(size(full_order,1), prod(n+1));
@@ -32,6 +30,3 @@ for k = 1:size(I,1)
     C( cur_idx, : ) = eye(sum(cur_idx));
     T(:,k) = C * x_prods(k).coeff;
 end
-
-% max_order = sum(n,2) * ones(1,size(n,2)); % possible maximum order
-% I = integer_grid(zeros(size(n)), max_order);

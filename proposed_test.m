@@ -1,5 +1,8 @@
 clear; close all; clc;
 
+addpath(genpath('3rd_party/helperOC-master')) % HJB equation solver
+addpath(genpath('3rd_party/ToolboxLS'))
+
 % given initial set
 Q0 = diag([0.05; 0.05])^2;
 
@@ -76,7 +79,6 @@ E_N = Polynomial.expand_matrix( N, quad_degree );
 
 B_NNx = (Polynomial.bernstein_transform_matrix( N+Nx ));
 h_N = prod((1./(poly_degree+1)).*( ones(size(poly_degree)).^(poly_degree+1) - (-ones(size(poly_degree))).^(poly_degree+1) ),2);
-
 
 quad_idx_1st_order = sum(quad_degree,2) == 1;
 quad_idx_2nd_order = sum(quad_degree,2) == 2;
