@@ -18,7 +18,7 @@ Q_basis{1} = Q0;
 a_basis = cell(1,N);
 a_basis{1} = 1.0;
 
-% fourth dimension is now disturbance channel
+% the fourth dimension represents disturbance channel
 Nk = zeros(sys.Nx,sys.Nx,N-1,sys.Nw);
 
 % state-transition matrix

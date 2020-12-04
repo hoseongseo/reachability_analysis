@@ -1,5 +1,5 @@
 function [S, Bp] = bernstein_transform_matrix(n)
-I = integer_grid(zeros(size(n)), n);
+I = Polynomial.integer_grid(zeros(size(n)), n);
 vp(1:length(n)) = Polynomial;
 for i = 1:length(n)
     e_ = zeros(1,length(n));

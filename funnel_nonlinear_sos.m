@@ -1,10 +1,21 @@
-function [Q_step1, Q_step2] = funnel_nonlinear_sos( sys, t, Q0, rho, maxIter, ftol )
+function [region, cost_hist, rate_hist] = funnel_nonlinear_sos( sys, tk, Q0, args )
+% sys: dynamics
+% tk: time horizon of interest (discretized)
+% Q0: shape matrix for the initial set
+% args: extra arguments detailed as
+if nargin < 4
+    args.max_iter = 10;
+    args.rho = 5.0;
+    args.ftol = 5e-4;
+    args.plot_cost = false;
+end
+
 solver_opt.solver = 'sedumi';
 
 nx = sys.Nx;
 nw = sys.Nw;
 
-N = length(t);
+N = length(tk);
 
 x = mpvar('x', [nx,1]);
 w = mpvar('w', [nw,1]);
@@ -20,16 +31,22 @@ for j = 1:nw
 end
 
 % initial guess on level
-rhoInit = exp(rho*t);
+rho_init = exp(args.rho*tk);
 
 % preparation
 step2_solved = false;
-costHist = [];
-rateHist = [];
+cost_hist = [];
+rate_hist = [];
 
 order = 2;
 res = 0;
-for iter = 1:maxIter
+
+region = struct('step1', [], 'step2', []);
+Q_step1 = zeros(nx,nx,N);
+Q_step2 = zeros(nx,nx,N);
+
+% MAIN LOOP
+for iter = 1:args.max_iter
     %% STEP 1 : Lagrange multiplier polynomial
     step1 = sosprogram(vars);
     
@@ -69,7 +86,7 @@ for iter = 1:maxIter
         rho0 = sosgetsol(step2, rho{1});
     else
         V0 = x'*inv(Q0)*x;
-        rho0 = rhoInit(1);
+        rho0 = rho_init(1);
     end
     step1 = sosineq(step1, rho0 - V0 - L0*gx);
     step1 = sosineq(step1, L0); % L0 should be SOS itself
@@ -80,7 +97,7 @@ for iter = 1:maxIter
             rho_ = sosgetsol(step2, rho{k});
             V_ = sosgetsol(step2, V{k});
         else
-            rho_ = rhoInit(k);
+            rho_ = rho_init(k);
             V_ = x'*inv(Q0)*x;
         end
         
@@ -99,7 +116,7 @@ for iter = 1:maxIter
         
         % Constraints 5 : Value gradients
         if k > 1
-            dt_ = t(k) - t(k-1);
+            dt_ = tk(k) - tk(k-1);
             drho_ = (rho_ - rhoprev_) / dt_;
             dV_dt_ = (V_ - Vprev_) / dt_; % partial derivative of V wrt time
             
@@ -111,7 +128,7 @@ for iter = 1:maxIter
             else
                 dV_dx_ = 2*inv(Q0)*x;
             end
-            dV_ = dV_dt_ + dV_dx_'*sys.f(x, zeros(sys.Nu,1), w, t(k));
+            dV_ = dV_dt_ + dV_dx_'*sys.f(x, zeros(sys.Nu,1), w, tk(k));
             
             
             expr = drho_ - dV_ - L{k}*(V_ - rho_);
@@ -130,7 +147,7 @@ for iter = 1:maxIter
         if step2_solved
             obj1 = obj1 - trace(S_*inv(S_prev(:,:,k)));
         else
-            obj1 = obj1 - trace(S_*(Q0*rhoInit(k)));
+            obj1 = obj1 - trace(S_*(Q0*rho_init(k)));
         end
         Vprev_ = V_;
         rhoprev_ = rho_;
@@ -192,14 +209,14 @@ for iter = 1:maxIter
         
         % Constraints 4 : Value gradients
         if k > 1
-            dt_ = t(k) - t(k-1);
+            dt_ = tk(k) - tk(k-1);
             drho_ = (rho_ - rhoprev_) / dt_;
             dV_dt_ = (V_ - Vprev_) / dt_; % partial derivative of V wrt time
             dV_dx_ = [];
             for i = 1:nx
                 dV_dx_ = [dV_dx_; diff(V_,x(i))];
             end
-            dV_ = dV_dt_ + dV_dx_'*sys.f(x, zeros(sys.Nu,1), w, t(k));
+            dV_ = dV_dt_ + dV_dx_'*sys.f(x, zeros(sys.Nu,1), w, tk(k));
             
             expr = drho_ - dV_ - sosgetsol(step1, L{k})*(V_ - rho_);
             for j = 1:nw
@@ -217,7 +234,7 @@ for iter = 1:maxIter
         if step2_solved
             obj2 = obj2 - trace(S_*inv(R_prev(:,:,k)));
         else
-            obj2 = obj2 - trace(S_*(Q0*rhoInit(k)));
+            obj2 = obj2 - trace(S_*(Q0*rho_init(k)));
         end
         Vprev_ = V_;
         rhoprev_ = rho_;
@@ -229,33 +246,40 @@ for iter = 1:maxIter
     %% check cost and dcost
     cost = 0;
     for k = 1:N
-        cost = cost - double(det( sosgetsol(step2, R{k}) ));
+        Q_step1(:,:,k) = inv(double(sosgetsol(step1, S{k})));
+        Q_step2(:,:,k) = inv(double(sosgetsol(step2, R{k})));
+        cost = cost + log(det( Q_step2(:,:,k) ));
     end
-
+    region_ = struct('step1', Q_step1, 'step2', Q_step2);
+    
     if ~step2_solved
         disp(['Iteration #', num2str(iter),...
             ': cost = ', num2str(cost)])
+        cost_hist = [cost_hist, cost];
     else
         dec_rate = (cost_prev - cost) / cost_prev;
         disp(['Iteration #', num2str(iter),...
             ': cost = ', num2str(cost),...
             ', dcost = ', num2str(cost_prev-cost),...
             ', rate = ', num2str(dec_rate)])
-        rateHist = [rateHist, dec_rate];
+        rate_hist = [rate_hist, dec_rate];
+        cost_hist = [cost_hist, cost];
         
-        if abs(dec_rate) < ftol 
-            res = 1; % converged
-            disp(['Converged (rate = ',num2str(dec_rate),' / ftol = ',num2str(ftol),')'])
+        if abs(dec_rate) < args.ftol 
+            % converged, accept the last result
+            res = 1; 
+            disp(['Converged (rate = ',num2str(dec_rate),' / ftol = ',num2str(args.ftol),')'])
             break;
         end
-        if dec_rate > 0
-            res = 2; % prematured stop
-            disp('Terminate due to increase of cost')
-            break;
-        end
+%         if dec_rate > 0
+%             % cost increased, reject the last result
+%             res = 2;
+%             disp('Terminate due to increase of cost')
+%             break;
+%         end
     end
-    costHist = [costHist, cost];
-
+    region(iter) = region_;
+    
     % save the result of the current step as S_prev
     S_prev = zeros(nx,nx,N);
     for k = 1:N
@@ -271,19 +295,18 @@ for iter = 1:maxIter
     cost_prev = cost;
     step2_solved = true;
     
-    
     figure(33)
     cla; hold on; grid on;
     for k = round(linspace(1,N,11))
         % STEP1
         Q_sos_ = inv(double(sosgetsol(step1, S{k})));
         tmp = Q_sos_^(1/2)*Math.Sphere(nx-1,100).x;
-        h1 = plot3(tmp(1,:), t(k)*ones(1,size(tmp,2)), tmp(2,:), 'b', 'linewidth', 2);
+        h1 = plot3(tmp(1,:), tk(k)*ones(1,size(tmp,2)), tmp(2,:), 'b', 'linewidth', 2);
   
         % STEP2
         Q_sos_ = inv(double(sosgetsol(step2, R{k})));
         tmp = Q_sos_^(1/2)*Math.Sphere(nx-1,100).x;
-        h2 = plot3(tmp(1,:), t(k)*ones(1,size(tmp,2)), tmp(2,:), 'r--', 'linewidth', 2);
+        h2 = plot3(tmp(1,:), tk(k)*ones(1,size(tmp,2)), tmp(2,:), 'r--', 'linewidth', 2);
     end
     view([128,11])
     legend([h1,h2],...
@@ -294,37 +317,30 @@ for iter = 1:maxIter
     ylabel('$t$ [s]')
     zlabel('$x_2$')
     
-    figure(34)
-    subplot(2,1,1)
-    cla; hold on; grid on;
-    plot(costHist,'b*-')
-    axis tight;
-    ylabel('$cost$')
-    subplot(2,1,2)
-    cla; hold on; grid on;
-    plot(rateHist,'b*-')
-    axis tight;
-    ylabel('$rate$')
-    xlabel('Iteration')
-    drawnow
+    if args.plot_cost
+        figure(124)
+        subplot(2,1,1)
+        title('$\textbf{Convergence characteristics of SOS program}$')
+        cla; hold on; grid on;
+        plot(cost_hist,'b*-')
+        axis tight;
+        ylabel('$cost$')
+        
+        subplot(2,1,2)
+        cla; hold on; grid on;
+        plot(rate_hist,'b*-')
+        axis tight;
+        ylabel('$rate$')
+        xlabel('Iterations')
+        drawnow
+    end
 end
 
-if iter == maxIter
+if iter == args.max_iter
     res = 3; % maximum iteration
     disp('Maximum iteration reached')
 end
 
-Q_step1 = zeros(nx,nx,N);
-Q_step2 = zeros(nx,nx,N);
 if (res == 1) || (res == 3)
-    for k = 1:N
-        Q_step1(:,:,k) = inv(double(sosgetsol(step1, S{k})));
-        Q_step2(:,:,k) = inv(double(sosgetsol(step2, R{k})));
-    end
-elseif res == 2
-    % return the results of the previous step
-    for k = 1:N
-        Q_step1(:,:,k) = inv(S_prev(:,:,k));
-        Q_step2(:,:,k) = inv(R_prev(:,:,k));
-    end
+    region(iter) = region_;
 end

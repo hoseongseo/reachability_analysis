@@ -1,5 +1,5 @@
 function T = domain_transform_matrix(n, a, b)
-I = integer_grid(zeros(size(n)), n);
+I = Polynomial.integer_grid(zeros(size(n)), n);
 T = zeros( prod(n+1), prod(n+1) );
 if class(a) == "sym" || class(b) == "sym"
     T = sym(T);
@@ -7,7 +7,7 @@ end
     
 for i = 1:prod(n+1)
     i_ = I(i,:);
-    K_ = integer_grid(i_, n);
+    K_ = Polynomial.integer_grid(i_, n);
     id_K_ = Polynomial.getId( K_, n );
     for k = 1:size(K_,1)
         k_ = K_(k,:);

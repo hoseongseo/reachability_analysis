@@ -1,6 +1,6 @@
 function D = derivative_matrix(N)
 n = length(N);
-I = integer_grid(zeros(size(N)), N);
+I = Polynomial.integer_grid(zeros(size(N)), N);
 
 D = [];
 for i = 1:n

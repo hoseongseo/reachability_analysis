@@ -133,7 +133,7 @@ classdef Polynomial < handle
                 id1_ = Polynomial.getId( p1.order, max_order_ );
                 id2_ = Polynomial.getId( p2.order, max_order_ );
                 
-                id_all_ = minksum( id1_, id2_ ) - 1;
+                id_all_ = Utils.minksum( id1_, id2_ ) - 1;
                 id_ = unique( id_all_ );
                 
 %                 B = repmat(id_all_', [length(id_),1]) == repmat(id_, [1,length(id_all_)]);
@@ -160,7 +160,7 @@ classdef Polynomial < handle
                 p = p1.*p2;
             elseif s1(2) == s2(1)
                 p(1:s1(1),1:s2(2)) = Polynomial;
-                idx = integer_grid([1,1], [s1(1), s2(2)]);
+                idx = Polynomial.integer_grid([1,1], [s1(1), s2(2)]);
                 for k = 1:size(idx,1)
                     i_ = idx(k,1);
                     j_ = idx(k,2);

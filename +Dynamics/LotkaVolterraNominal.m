@@ -28,10 +28,10 @@ classdef LotkaVolterraNominal < Dynamics.Base
 
                 % Choice 2: local integration
                 x0 = this.xN(:,k1);
-                x_integ = this.sys0.rk4_forward(x0, zeros(this.Nu,2), [this.tN(k1), tq]);
+                x_integ = this.rk4_forward(x0, zeros(this.Nu,2), [this.tN(k1), tq]);
                 xt = x_integ(:,end);
                 
-                % Choice 3: piecewise constant assump.
+                % Choice 3: piecewise constant assumption
                 % xt = this.xN(:,k1);
             elseif (k2 - k1) == 2
                 xt = this.xN(:,0.5*(k1+k2));
