@@ -17,8 +17,10 @@ S = Utils.Sphere(1,200);
 
 %% system
 t = linspace(0,1,101);
-sys0 = Dynamics.LotkaVolterraNominal;
-sys = Dynamics.LotkaVolterra(wMax, sys0, [1.2; 1.1], t);
+% nominal dynamics with the initial condition
+sys0 = Dynamics.LotkaVolterraNominal([1.2; 1.1], t);
+% nonlinear system shifted to the origin
+sys = Dynamics.LotkaVolterra(sys0, wMax);
 
 
 %% Funnel (proposed, LTV)

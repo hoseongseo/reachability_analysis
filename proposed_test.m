@@ -14,8 +14,11 @@ S = Utils.Sphere(1,200);
 
 %% system
 t = linspace(0,1,101);
-sys0 = Dynamics.LotkaVolterraNominal;
-sys = Dynamics.LotkaVolterra(wMax, sys0, [1.2; 1.1], t);
+% nominal dynamics with the initial condition
+sys0 = Dynamics.LotkaVolterraNominal([1.2; 1.1], t);
+% nonlinear system shifted to the origin
+sys = Dynamics.LotkaVolterra(sys0, wMax);
+
 
 %% HJB equation
 load('V_lotka_volterra.mat')
@@ -104,6 +107,16 @@ for k = 1:length(t)-1
     end
 end
 
+% volume of the initial guess
+vol = 0.0;
+for k = 2:length(t)
+    vol = vol + log(det( R.Q(:,:,k) ));
+end
+
+costHist = vol;
+rateHist = [];
+
+ftol = 1e-5;
 
 for iter = 1:10
 %% Domain transform matrix
@@ -195,33 +208,52 @@ for k = 1:length(t)
     R_new.Q(:,:,k) = Q_;
 end
 
-%%
-X_poly = cell(1,length(t));
-gr_poly = createGrid([-0.1, -0.1], [0.1, 0.1], [101,101]);
-for k = 1:length(t)
-    Vtmp = Polynomial( c(:,k), integer_grid(N) );
-    X_poly{k} = getLevelSet( gr_poly, Vtmp.eval(gr_poly), 0.0 );
+vol = 0.0; % current cost
+for k = 2:length(t)
+    vol = vol + log(det( R_new.Q(:,:,k) ));
 end
+dec_rate = (costHist(end) - vol) / costHist(end);
+disp(['Iteration #', num2str(iter),...
+    ': cost = ', num2str(vol),...
+    ', dcost = ', num2str(costHist(end)-vol),...
+    ', rate = ', num2str(dec_rate)]);
 
-%%
+costHist = [costHist, vol];
+rateHist = [rateHist, dec_rate];
+
+
+%% visualization
 figure(331)
-hold on; grid on;
-xlim([-0.1,0.1])
-ylim([-0.1,0.1])
-for k = 1:length(t)
-    cla;
-    tmp = X_poly{k};
-    plot(tmp(1,:), tmp(2,:), 'b', 'linewidth', 2)
+cla; hold on; grid on; axis tight;
+for k = round(linspace(1,length(t),11))
+    tmp = sys.xN(:,k) + R_new.q(:,k) + R_new.Q(:,:,k)^(1/2) * S.x;
+    plot(tmp(1,:), tmp(2,:), 'r', 'linewidth', 2)
     
-    tmp = R_new.q(:,k) + R_new.Q(:,:,k)^(1/2) * S.x;
-    plot(tmp(1,:), tmp(2,:), 'r--', 'linewidth', 2)
-    
-    tmp = X{k};
-    plot(tmp(1,:), tmp(2,:), 'k--', 'linewidth', 2)
-    
-    drawnow
+%     tmp = sys.xN(:,k) + X{k};
+%     plot(tmp(1,:), tmp(2,:), 'k--', 'linewidth', 2)
+end
+drawnow
+
+figure(34)
+subplot(2,1,1)
+cla; hold on; grid on;
+plot(costHist,'b*-')
+axis tight;
+ylabel('$cost$')
+subplot(2,1,2)
+cla; hold on; grid on;
+plot(rateHist,'b*-')
+axis tight;
+ylabel('$rate$')
+xlabel('Iteration')
+drawnow
+
+%% Convergence check & Domain update
+if abs(dec_rate) < ftol
+    res = 1; % converged
+    disp(['Converged (rate = ',num2str(dec_rate),' / ftol = ',num2str(ftol),')'])
+    break;
 end
 
-%% domain update
 R = R_new;
 end

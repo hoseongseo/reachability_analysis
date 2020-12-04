@@ -1,4 +1,4 @@
-function [Q_step1, Q_step2] = funnel_sos( sys, t, Q, rho, maxIter, ftol )
+function [Q_step1, Q_step2] = funnel_nonlinear_sos( sys, t, Q0, rho, maxIter, ftol )
 solver_opt.solver = 'sedumi';
 
 nx = sys.Nx;
@@ -11,7 +11,7 @@ w = mpvar('w', [nw,1]);
 vars = [x;w];
 
 % state bound
-gx = 1 - x'*inv(Q)*x;
+gx = 1 - x'*inv(Q0)*x;
 
 % disturbance bound
 gw = cell(1,nw);
@@ -68,7 +68,7 @@ for iter = 1:maxIter
         V0 = sosgetsol(step2, V{1});
         rho0 = sosgetsol(step2, rho{1});
     else
-        V0 = x'*inv(Q)*x;
+        V0 = x'*inv(Q0)*x;
         rho0 = rhoInit(1);
     end
     step1 = sosineq(step1, rho0 - V0 - L0*gx);
@@ -81,7 +81,7 @@ for iter = 1:maxIter
             V_ = sosgetsol(step2, V{k});
         else
             rho_ = rhoInit(k);
-            V_ = x'*inv(Q)*x;
+            V_ = x'*inv(Q0)*x;
         end
         
         S_ = S{k};
@@ -109,7 +109,7 @@ for iter = 1:maxIter
                     dV_dx_ = [dV_dx_; diff(V_,x(i))];
                 end
             else
-                dV_dx_ = 2*inv(Q)*x;
+                dV_dx_ = 2*inv(Q0)*x;
             end
             dV_ = dV_dt_ + dV_dx_'*sys.f(x, zeros(sys.Nu,1), w, t(k));
             
@@ -130,7 +130,7 @@ for iter = 1:maxIter
         if step2_solved
             obj1 = obj1 - trace(S_*inv(S_prev(:,:,k)));
         else
-            obj1 = obj1 - trace(S_*(Q*rhoInit(k)));
+            obj1 = obj1 - trace(S_*(Q0*rhoInit(k)));
         end
         Vprev_ = V_;
         rhoprev_ = rho_;
@@ -217,7 +217,7 @@ for iter = 1:maxIter
         if step2_solved
             obj2 = obj2 - trace(S_*inv(R_prev(:,:,k)));
         else
-            obj2 = obj2 - trace(S_*(Q*rhoInit(k)));
+            obj2 = obj2 - trace(S_*(Q0*rhoInit(k)));
         end
         Vprev_ = V_;
         rhoprev_ = rho_;
@@ -304,7 +304,7 @@ for iter = 1:maxIter
     cla; hold on; grid on;
     plot(rateHist,'b*-')
     axis tight;
-    ylabel('$dcost$')
+    ylabel('$rate$')
     xlabel('Iteration')
     drawnow
 end
