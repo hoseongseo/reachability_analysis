@@ -1,4 +1,10 @@
-function hh = plot_set(bdry, t, n, color, alpha)
+function hh = plot_set(bdry, t, n, color, alpha, ls, lw, ec)
+
+if nargin < 6
+    ls = 'none';
+    lw = 0.01;
+    ec = 'k';
+end
 
 for i = 1:round(length(t)/n):length(t)
     if class(bdry) == "cell"
@@ -24,7 +30,10 @@ for i = 1:round(length(t)/n):length(t)
         end
         
         hh = trisurf(K_new, pts_total(1,:), pts_total(2,:), pts_total(3,:),...
-            'facecolor', color, 'facealpha', alpha, 'linestyle', 'none', 'linewidth', 0.01);
+            'facecolor', color, 'facealpha', alpha,...
+            'linestyle', ls,...
+            'linewidth', lw,...
+            'edgecolor', ec);
         
         pts_prev = pts;     
     end    

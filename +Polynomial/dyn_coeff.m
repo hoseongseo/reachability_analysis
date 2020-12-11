@@ -13,6 +13,6 @@ S = zeros( prod(Nx+1), prod(Nw+1), n );
 for i = 1:n
     fpw = fp(i).collect(n+(1:m));
     for j = 1:prod(Nw+1)
-        S(:,j,i) = fpw.coeff(j).coeff;
+        S(:,j,i) = Polynomial.expand_matrix(Nx, fpw.coeff(j).order)*fpw.coeff(j).coeff;
     end
 end

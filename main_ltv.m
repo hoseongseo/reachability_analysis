@@ -13,7 +13,7 @@ set(groot, 'DefaultAxesFontSize', 16)
 Q0 = diag([0.25, 0.25]);
 
 % LTV system
-t = linspace(0,2,201);
+t = linspace(0,2,401);
 A = @(t) [-0.8*t + 0.5, cos(1.5*t + 2); 0.5*t^(2/3), -2*exp(-0.7*t)];
 D = @(t) [0.4*cos(t), -0.4*t^2; 0.08*t,  2.8*cos(3*t)];
 sys = Dynamics.LTV(2, 0, 2, A, D); 
@@ -53,10 +53,11 @@ for i = 2:length(t)
     X{i} = Utils.get_level_set(gr, V(:,:,i), 0.0);
 end
 
+%%
 %%%%% comparison
-figure;
+figure(3)
 cla; hold on; grid on;
-h1 = Utils.plot_set(X, t, length(t), 'k', 0.7);
+h1 = Utils.plot_set(X, t, length(t), 'k', 0.8);
 h2 = Utils.plot_set(F, t, length(t), 'r', 0.5);
 view([128,11])
 camlight left
@@ -64,12 +65,46 @@ camlight right
 xlabel('$x_1$')
 ylabel('$t$ [s]')
 zlabel('$x_2$')
+xlim([-2.5,2.5])
+zlim([-2.5,2.5])
+ylim([0,2])
 ax = gca;
-ax.XLabel.Position = [-0.1725, 2.1516, -3.3917];
-ax.YLabel.Position = [2.2098, 0.9221, -3.5364];
+ax.XLabel.Position = [-0.2194, 2.1422, -2.7370];
+ax.YLabel.Position = [2.7314, 0.9289, -2.8754];
 legend([h1,h2], '$\underline{\mathcal{X}}(t)$', '$\mathcal{E}(Q_x(t))$', 'location', 'northwest')
-title('$\textbf{Comparision of the funnel and reachable set}$')
+% title('$\textbf{Comparision of the funnel and reachable set}$')
 
+%%
+figure(4)
+subplot(2,1,1)
+cla; hold on; grid on;
+h1 = Utils.plot_set(X, t, length(t), 'k', 0.8);
+h2 = Utils.plot_set(F, t, length(t), 'r', 0.5);
+view([128,11])
+camlight left
+camlight right
+view([90,90])
+xlabel('$x_1$')
+zlabel('$x_2$')
+xlim([-2.5,2.5])
+zlim([-2.5,2.5])
+ylim([0,2])
+
+subplot(2,1,2)
+cla; hold on; grid on;
+h1 = Utils.plot_set(X, t, length(t), 'k', 0.8);
+h2 = Utils.plot_set(F, t, length(t), 'r', 0.5);
+view([128,11])
+camlight left
+camlight right
+view([90,0])
+xlabel('$x_1$')
+ylabel('$t$ [s]')
+zlabel('$x_2$')
+xlim([-2.5,2.5])
+zlim([-2.5,2.5])
+ylim([0,2])
+%%
 %%% remove added path
 rmpath(genpath('3rd_party/helperOC-master'))
 rmpath(genpath('3rd_party/ToolboxLS'))

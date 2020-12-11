@@ -41,7 +41,7 @@ classdef Polynomial < handle
             max_order_sub = max(order_sub, [], 1);
             
             id_sub = Polynomial.getId( order_sub, max_order_sub );
-            id_sub_unique = unique( id_sub );
+            id_sub_unique = id_sub;
             
             cff_collected( 1:length(id_sub_unique), 1) = Polynomial;
             for i = 1:length(id_sub_unique)

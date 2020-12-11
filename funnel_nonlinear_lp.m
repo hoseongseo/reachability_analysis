@@ -88,6 +88,9 @@ cost_hist = vol;
 rate_hist = [];
 
 % MAIN LOOP
+num_elem = 21; % number of elements per segment
+num_seg = (length(tk)-1)/(num_elem-1);
+
 for iter = 1:args.max_iter
     %% Domain transform matrices over time
     % current domain of interest
@@ -104,26 +107,103 @@ for iter = 1:args.max_iter
     end
     
     %% Solve LP
-    cvx_begin
-        variable c( prod(N+1), length(tk) )
-        variable c_tilde( (sys.Nx+1)*(sys.Nx+2)/2, length(tk) )
+    c = zeros(prod(N+1), length(tk));
+    c_tilde = zeros((sys.Nx+1)*(sys.Nx+2)/2, length(tk));
     
-        cost = 0.0;
-        for k = 2:length(tk)
-            cost = cost - h_N'*(T_N(:,:,k)*E_N*c_tilde(:,k));
-        end
-        minimize cost
-    
-        subject to
-            c(:,1) == c0
-            c_tilde(:,1) == c_tilde0
-            for k = 1:length(tk)-1
-                for m = 1:prod(Nw+1)
-                    B_NNx\T_NNx(:,:,k)*( C_N_Nx*(c(:,k+1)-c(:,k)) + (tk(k+1)-tk(k))*H(:,:,m,k)*c(:,k) ) <= 0
-                end
-                B_N\T_N(:,:,k+1)*(E_N*c_tilde(:,k+1) - c(:,k+1)) <= 0
+    for i = 1:num_seg
+        cvx_begin
+            cvx_precision best
+            cvx_quiet true
+            
+            variable c_seg( prod(N+1), num_elem )
+            variable c_tilde_seg( (sys.Nx+1)*(sys.Nx+2)/2, num_elem )
+            
+            cost = 0.0;
+            for k = 2:num_elem
+                idx_k = (num_elem-1)*(i-1)+k;
+                cost = cost - h_N'*(T_N(:,:,idx_k)*E_N*c_tilde_seg(:,k));
             end
-    cvx_end
+            minimize cost
+            
+            subject to
+                if i == 1
+                    c_seg(:,1) == c0
+                    c_tilde_seg(:,1) == c_tilde0
+                else
+                    c_seg(:,1) == c_seg_prev(:,end)
+                    c_tilde_seg(:,1) == c_tilde_seg_prev(:,end)
+                end
+                
+                for k = 1:num_elem-1
+                    idx_k = (num_elem-1)*(i-1)+k;
+                    for m = 1:prod(Nw+1)
+                        B_NNx\T_NNx(:,:,idx_k)*( C_N_Nx*(c_seg(:,k+1)-c_seg(:,k)) + (tk(idx_k+1)-tk(idx_k))*H(:,:,m,idx_k)*c_seg(:,k) ) <= 0
+                    end
+                    B_N\T_N(:,:,idx_k+1)*(E_N*c_tilde_seg(:,k+1) - c_seg(:,k+1)) <= 0
+                end
+        cvx_end
+        
+        c_seg_prev = c_seg;
+        c_tilde_seg_prev = c_tilde_seg;
+        
+        c(:,(num_elem-1)*(i-1) + (1:num_elem)) = c_seg;
+        c_tilde(:,(num_elem-1)*(i-1) + (1:num_elem)) = c_tilde_seg;
+    end
+    
+%     cvx_begin
+%         variable c( prod(N+1), length(tk) )
+%         variable c_tilde( (sys.Nx+1)*(sys.Nx+2)/2, length(tk) )
+%     
+%         cost = 0.0;
+%         for k = 2:length(tk)
+%             cost = cost - h_N'*(T_N(:,:,k)*E_N*c_tilde(:,k));
+%         end
+%         minimize cost
+%     
+%         subject to
+%             c(:,1) == c0
+%             c_tilde(:,1) == c_tilde0
+%             for k = 1:length(tk)-1
+%                 for m = 1:prod(Nw+1)
+%                     B_NNx\T_NNx(:,:,k)*( C_N_Nx*(c(:,k+1)-c(:,k)) + (tk(k+1)-tk(k))*H(:,:,m,k)*c(:,k) ) <= 0
+%                 end
+%                 B_N\T_N(:,:,k+1)*(E_N*c_tilde(:,k+1) - c(:,k+1)) <= 0
+%             end
+%     cvx_end
+
+%     cvx_begin
+%         variable c( prod(N+1), length(tk) )
+%     
+%         cost1 = 0.0;
+%         for k = 2:length(tk)
+%             cost1 = cost1 - h_N'*(T_N(:,:,k)*c(:,k));
+%         end
+%         minimize cost1
+%     
+%         subject to
+%             c(:,1) == c0
+%             for k = 1:length(tk)-1
+%                 for m = 1:prod(Nw+1)
+%                     B_NNx\T_NNx(:,:,k)*( C_N_Nx*(c(:,k+1)-c(:,k)) + (tk(k+1)-tk(k))*H(:,:,m,k)*c(:,k) ) <= 0
+%                 end
+%             end
+%     cvx_end
+% 
+%     cvx_begin
+%         variable c_tilde( (sys.Nx+1)*(sys.Nx+2)/2, length(tk) )
+%     
+%         cost2 = 0.0;
+%         for k = 2:length(tk)
+%             cost2 = cost2 - h_N'*(T_N(:,:,k)*E_N*c_tilde(:,k));
+%         end
+%         minimize cost2
+%     
+%         subject to
+%             c_tilde(:,1) == c_tilde0
+%             for k = 1:length(tk)-1
+%                 B_N\T_N(:,:,k+1)*(E_N*c_tilde(:,k+1) - c(:,k+1)) <= 0
+%             end
+%     cvx_end
     
     %% Post processes
     % extract ellipsoid from c_tilde
@@ -176,6 +256,25 @@ for iter = 1:args.max_iter
         axis tight;
         ylabel('$rate$')
         xlabel('Iterations')
+        drawnow
+        
+        figure(213)
+        cla; hold on; grid on;
+        for k = round(linspace(1,length(tk),7))
+            tmp = Q_ltv(:,:,k)^(1/2) * Utils.Sphere(1,200).x;
+            plot3(tmp(1,:), tk(k)*ones(1,size(tmp,2)), tmp(2,:), 'g--', 'linewidth', 2)
+            
+            if sum(strcmp(fieldnames(args), 'frs')) == 1
+                tmp = args.frs{k};
+                plot3(tmp(1,:), tk(k)*ones(1,size(tmp,2)), tmp(2,:), 'k', 'linewidth', 2);
+            end
+            tmp = region_new.q(:,k) + region_new.Q(:,:,k)^(1/2) * Utils.Sphere(1,200).x;
+            plot3(tmp(1,:), tk(k)*ones(1,size(tmp,2)), tmp(2,:), 'r', 'linewidth', 2)
+        end
+        xlabel('$x_1$')
+        zlabel('$x_2$')
+        ylabel('$t$ [s]')
+        view([122,19])
         drawnow
     end
     
