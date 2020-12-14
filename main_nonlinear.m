@@ -21,10 +21,9 @@ wMax = 0.1;
 S = Utils.Sphere(1,200);
 
 %%% system (polynomial dynamics)
-t = linspace(0,1,101);
+t = linspace(0,1,51);
 sys0 = Dynamics.LotkaVolterraNominal([1.2; 1.1], t); % nominal dynamics with the initial condition
 sys = Dynamics.LotkaVolterra(sys0, wMax); % system shifted to the origin
-
 
 %%% Funnel (proposed, LTV)
 Q_ltv = funnel_ltv(sys, t, Q0);
@@ -33,6 +32,7 @@ for i = 1:length(t)
     F_ltv(:,:,i) = Q_ltv(:,:,i)^(1/2) * S.x;
 end
 
+%%
 %%% Funnel (proposed, nonlinear)
 [res_lp, cost_lp, rate_lp] = funnel_nonlinear_lp(sys, t, Q0, [3,3]);
 F_lp = zeros([size(S.x), length(t)]);
@@ -40,6 +40,13 @@ for i = 1:length(t)
     F_lp(:,:,i) = res_lp(end).Q(:,:,i)^(1/2) * S.x;
 end
 
+%%
+etime_lp = zeros(1,3);
+for i = 2:length(res_lp)
+    etime_lp = etime_lp + res_lp(i).time;
+end
+
+%%
 %%% Funnel (SOS Program)
 [res_sos, cost_sos, rate_sos] = funnel_nonlinear_sos(sys, t, Q0);
 F_sos = zeros([size(S.x), length(t)]);
@@ -47,6 +54,12 @@ for i = 1:length(t)
     F_sos(:,:,i) = res_sos(end).step2(:,:,i)^(1/2) * S.x;
 end
 
+%%
+etime_sos = zeros(1,2);
+for i = 2:length(res_sos)
+    etime_sos = etime_sos + res_sos(i).time;
+end
+%%
 %%% HJB equation
 % grid for HJB equation
 nGrid = [201, 201];
@@ -71,19 +84,24 @@ for i = 2:length(t)
     X{i} = Utils.get_level_set(gr, V(:,:,i), 0.0);
 end
 
-
+%%
 %%%%% comparison
 figure;
 cla; hold on; grid on;
-h1 = Utils.plot_set(X, t, length(t), 'k', 0.5);
-h2 = Utils.plot_set(F_lp, t, length(t), 'r', 0.3);
-for i = round(linspace(1,length(t),7))
+h1 = Utils.plot_set(X, t, length(t), 'k', 0.3);
+h2 = Utils.plot_set(F_lp, t, length(t), 'r', 0.2);
+for i = round(linspace(1,length(t),6))
+    
+    tmp = X{i};
+    plot3(tmp(1,:), t(i)*ones(1,size(tmp,2)), tmp(2,:), 'k', 'linewidth', 2)
+    
     tmp = F_sos(:,:,i);
     h3 = plot3(tmp(1,:), t(i)*ones(1,size(tmp,2)), tmp(2,:), 'color', [76,187,23]/255, 'linewidth', 2);
     tmp = F_lp(:,:,i);
     plot3(tmp(1,:), t(i)*ones(1,size(tmp,2)), tmp(2,:), 'r--', 'linewidth', 2)
+    
 end
-view([128,11])
+view([113,16])
 camlight left
 camlight right
 xlabel('$x_1$')
@@ -97,8 +115,9 @@ legend([h1,h2,h3],...
     '$\mathcal{F}(t)$ (Proposed)',...
     '$\mathcal{F}(t)$ (SOS program)',...
     'location', 'northeast')
-title('$\textbf{Comparision of funnels and reachable set}$')
+% title('$\textbf{Comparision of funnels and reachable set}$')
 
+%%
 figure;
 cla; hold on; grid on;
 for i = round(linspace(1,length(t),5))
@@ -116,13 +135,14 @@ for i = round(linspace(1,length(t),5))
 end
 xlabel('$x_1$')
 ylabel('$x_2$')
-legend([h1,h2,h3],...
-    '$\mathcal{X}(t)$',....
-    '$\mathcal{F}(t)$ (Proposed)',...
-    '$\mathcal{F}(t)$ (SOS program)',...
-    'location', 'southeast')
+% legend([h1,h2,h3],...
+%     '$\mathcal{X}(t)$',....
+%     '$\mathcal{F}(t)$ (Proposed)',...
+%     '$\mathcal{F}(t)$ (SOS program)',...
+%     'location', 'southeast')
 title('$\textbf{Funnels along the nominal trajectory}$')
 
+%%
 figure;
 subplot(2,1,1)
 title('$\textbf{Convergence characteristics}$')

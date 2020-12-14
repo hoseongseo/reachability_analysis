@@ -4,10 +4,10 @@ function [region, cost_hist, rate_hist] = funnel_nonlinear_sos( sys, tk, Q0, arg
 % Q0: shape matrix for the initial set
 % args: extra arguments detailed as
 if nargin < 4
-    args.max_iter = 10;
+    args.max_iter = 20;
     args.rho = 5.0;
     args.ftol = 5e-4;
-    args.plot_cost = false;
+    args.plot_cost = true;
 end
 
 solver_opt.solver = 'sedumi';
@@ -41,13 +41,14 @@ rate_hist = [];
 order = 2;
 res = 0;
 
-region = struct('step1', [], 'step2', []);
+region = struct('step1', [], 'step2', [], 'time', zeros(1,2));
 Q_step1 = zeros(nx,nx,N);
 Q_step2 = zeros(nx,nx,N);
 
 % MAIN LOOP
 for iter = 1:args.max_iter
     %% STEP 1 : Lagrange multiplier polynomial
+    tic;
     step1 = sosprogram(vars);
     
     % Variable 1 : Lyapunov polynomial for initial condition
@@ -155,9 +156,10 @@ for iter = 1:args.max_iter
     
     step1 = sossetobj(step1,obj1);
     step1 = sossolve(step1,solver_opt);
-    
+    etime1 = toc;
 
     %% STEP 2 : Value and level (L and Lem fixed)
+    tic;
     step2 = sosprogram(vars);
     
     % Variable 1 : Lyapunov polynomial for initial condition
@@ -242,6 +244,7 @@ for iter = 1:args.max_iter
     
     step2 = sossetobj(step2,obj2);
     step2 = sossolve(step2,solver_opt);
+    etime2 = toc;
     
     %% check cost and dcost
     cost = 0;
@@ -250,7 +253,7 @@ for iter = 1:args.max_iter
         Q_step2(:,:,k) = inv(double(sosgetsol(step2, R{k})));
         cost = cost + log(det( Q_step2(:,:,k) ));
     end
-    region_ = struct('step1', Q_step1, 'step2', Q_step2);
+    region_ = struct('step1', Q_step1, 'step2', Q_step2, 'time', [etime1, etime2]);
     
     if ~step2_solved
         disp(['Iteration #', num2str(iter),...

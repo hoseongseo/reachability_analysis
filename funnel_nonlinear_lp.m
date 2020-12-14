@@ -6,7 +6,7 @@ function [region, cost_hist, rate_hist] = funnel_nonlinear_lp(sys, tk, Q0, N, ar
 % args: extra arguments detailed as
 if nargin < 5
     args.max_iter = 10;
-    args.ftol = 1e-5;
+    args.ftol = 5e-4;
     args.plot_cost = false;
 end
 
@@ -26,7 +26,7 @@ end
 
 % domain of interest (initialized by the funnel of LTV system)
 Q_ltv = funnel_ltv(sys, tk, Q0);
-region = struct('q', zeros(sys.Nx,length(tk)), 'Q', Q_ltv);
+region = struct('q', zeros(sys.Nx,length(tk)), 'Q', Q_ltv, 'time', zeros(1,3));
 
 % degrees of the approximated value functions
 poly_degree = Polynomial.integer_grid(N);
@@ -93,6 +93,7 @@ for iter = 1:args.max_iter
     % current domain of interest
     region_ = region(end);
     
+    tic;
     T_NNx = zeros( prod(N+Nx+1), prod(N+Nx+1), length(tk) );
     T_N = zeros( prod(N+1), prod(N+1), length(tk) );
     for k = 1:length(tk)
@@ -102,10 +103,52 @@ for iter = 1:args.max_iter
         T_NNx(:,:,k) = Polynomial.domain_transform_matrix( N+Nx, a_, b_ );
         T_N(:,:,k) = Polynomial.domain_transform_matrix( N, a_, b_ );
     end
+    etime1 = toc;
     
     %% Solve LP
-    cvx_begin
+%     cvx_begin
+%         variable c( prod(N+1), length(tk) )
+%         variable c_tilde( (sys.Nx+1)*(sys.Nx+2)/2, length(tk) )
+%     
+%         cost = 0.0;
+%         for k = 2:length(tk)
+%             cost = cost - h_N'*(T_N(:,:,k)*E_N*c_tilde(:,k));
+%         end
+%         minimize cost
+%     
+%         subject to
+%             c(:,1) == c0
+%             c_tilde(:,1) == c_tilde0
+%             for k = 1:length(tk)-1
+%                 for m = 1:prod(Nw+1)
+%                     B_NNx\T_NNx(:,:,k)*( C_N_Nx*(c(:,k+1)-c(:,k)) + (tk(k+1)-tk(k))*H(:,:,m,k)*c(:,k) ) <= 0
+%                 end
+%                 B_N\T_N(:,:,k+1)*(E_N*c_tilde(:,k+1) - c(:,k+1)) <= 0
+%             end
+%     cvx_end
+
+    tic
+    cvx_begin quiet
         variable c( prod(N+1), length(tk) )
+    
+        cost = 0.0;
+        for k = 2:length(tk)
+            cost = cost - h_N'*(T_N(:,:,k)*c(:,k));
+        end
+        minimize cost
+    
+        subject to
+            c(:,1) == c0
+            for k = 1:length(tk)-1
+                for m = 1:prod(Nw+1)
+                    B_NNx\T_NNx(:,:,k)*( C_N_Nx*(c(:,k+1)-c(:,k)) + (tk(k+1)-tk(k))*H(:,:,m,k)*c(:,k) ) <= 0
+                end
+            end
+    cvx_end
+    etime2 = toc;
+    
+    tic
+    cvx_begin quiet
         variable c_tilde( (sys.Nx+1)*(sys.Nx+2)/2, length(tk) )
     
         cost = 0.0;
@@ -115,18 +158,16 @@ for iter = 1:args.max_iter
         minimize cost
     
         subject to
-            c(:,1) == c0
             c_tilde(:,1) == c_tilde0
             for k = 1:length(tk)-1
-                for m = 1:prod(Nw+1)
-                    B_NNx\T_NNx(:,:,k)*( C_N_Nx*(c(:,k+1)-c(:,k)) + (tk(k+1)-tk(k))*H(:,:,m,k)*c(:,k) ) <= 0
-                end
                 B_N\T_N(:,:,k+1)*(E_N*c_tilde(:,k+1) - c(:,k+1)) <= 0
             end
     cvx_end
+    etime3 = toc;
     
     %% Post processes
     % extract ellipsoid from c_tilde
+    tic
     c_tilde_conv = c_tilde.*repmat( ones((sys.Nx+1)*(sys.Nx+2)/2,1) - 0.5*quad_idx_skew, [1,length(tk)] );
     r = c_tilde_conv(1,:);
     d = c_tilde_conv(quad_idx_1st_order, :);
@@ -151,6 +192,7 @@ for iter = 1:args.max_iter
     for k = 2:length(tk)
         vol = vol + log(det( region_new.Q(:,:,k) ));
     end
+    etime1 = etime1 + toc;
     dec_rate = (cost_hist(end) - vol) / cost_hist(end);
     disp(['Iteration #', num2str(iter),...
         ': cost = ', num2str(vol),...
@@ -159,6 +201,7 @@ for iter = 1:args.max_iter
     
     cost_hist = [cost_hist, vol];
     rate_hist = [rate_hist, dec_rate];
+    region_new.time = [etime1, etime2, etime3];
     
     % visualization
     if args.plot_cost
