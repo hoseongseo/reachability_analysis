@@ -32,8 +32,8 @@ wp = Polynomial(1,[0,0,1]);
 fp = f(xp, wp);
 t = linspace(0,1,101);
 
-load('../210722/gmm_210819.mat')
-load('../210722/nmpc_210819.mat')
+% load('../210722/gmm_210819.mat')
+% load('../210722/nmpc_210819.mat')
 %load('../reachability_analysis/sos_210819.mat')
 %load('../reachability_analysis/hjb_210819.mat')
 
@@ -90,9 +90,7 @@ for k = 1:length(t)-1
     Dd_ = A0_\(Ad_-I)*D0_;
 
     Q_lin(:,:,k+1) = Ad_*Q_*Ad_' + Dd_*H_'*Ad_' + Ad_*H_*Dd_' + Dd_*W*Dd_';
-    H_lin(:,k+1) = Ad_*H_ + Dd_*W;
-    
-%     q_lin(:,k+1) = q_ + dt_*f0_;
+    H_lin(:,k+1) = Ad_*H_ + Dd_*W; 
 end
 ctime_linearization = toc;
 
@@ -102,10 +100,13 @@ args.rho = 3.0;
 args.ftol = 5e-4;
 args.plot_cost = false;
 tic;
-[res_sos, cost_sos, rate_sos] = funnel_nonlinear_sos(sys, t, Q, args);
+[res_sos, cost_sos, rate_sos] = funnel_sos(sys, t, Q, args);
 ctime_sos = toc;
 
 Q_sos = res_sos(end).step2;
+
+%% Nonlinear-optimization-based method
+Q_nonlin = funnel_nonlinear_opt(sys, t, Q, wMax);
 
 %% Proposed
 Q_proposed = zeros(2,2,length(t));
@@ -306,21 +307,21 @@ for k = round(linspace(1,length(t),4))
 %     plot(x_(1,:), x_(2,:), 'b', 'linewidth', 2)
     plot(x_(1,:), x_(2,:), 'k-', 'linewidth', 1);
     
-    %%% SOS
-    x_ = sys.xN(:,k) + Q_sos(:,:,k)^(1/2)*Math.Sphere(1,nPts).x;
-%     plot(x_(1,:), x_(2,:), 'color', [237,145,33]/255, 'linewidth', 2)
-    h3 = plot(x_(1,:), x_(2,:), '^', 'color', 'r', 'linewidth', 1);
-    x_ = sys.xN(:,k) + Q_sos(:,:,k)^(1/2)*Math.Sphere(1,nPts2).x;
-%     plot(x_(1,:), x_(2,:), 'color', [237,145,33]/255, 'linewidth', 2)
-    plot(x_(1,:), x_(2,:), '-', 'color', 'r', 'linewidth', 1);
-%     
-%     %%% NMPC
-%     x_ = sys.xN(:,k) + Qres(:,:,k)^(1/2)*Math.Sphere(1,nPts).x;
-% %     plot(x_(1,:), x_(2,:), 'color', [0.3010 0.7450 0.9330], 'linewidth', 2)
-%     h4 = plot(x_(1,:), x_(2,:), 's', 'color', 'b', 'linewidth', 1);
-%     x_ = sys.xN(:,k) + Qres(:,:,k)^(1/2)*Math.Sphere(1,nPts2).x;
-% %     plot(x_(1,:), x_(2,:), 'color', [0.3010 0.7450 0.9330], 'linewidth', 2)
-%     plot(x_(1,:), x_(2,:), '-', 'color', 'b', 'linewidth', 1);
+%     %%% SOS
+%     x_ = sys.xN(:,k) + Q_sos(:,:,k)^(1/2)*Math.Sphere(1,nPts).x;
+% %     plot(x_(1,:), x_(2,:), 'color', [237,145,33]/255, 'linewidth', 2)
+%     h3 = plot(x_(1,:), x_(2,:), '^', 'color', 'r', 'linewidth', 1);
+%     x_ = sys.xN(:,k) + Q_sos(:,:,k)^(1/2)*Math.Sphere(1,nPts2).x;
+% %     plot(x_(1,:), x_(2,:), 'color', [237,145,33]/255, 'linewidth', 2)
+%     plot(x_(1,:), x_(2,:), '-', 'color', 'r', 'linewidth', 1);
+
+    %%% NMPC
+    x_ = sys.xN(:,k) + Q_nonlin(:,:,k)^(1/2)*Math.Sphere(1,nPts).x;
+%     plot(x_(1,:), x_(2,:), 'color', [0.3010 0.7450 0.9330], 'linewidth', 2)
+    h4 = plot(x_(1,:), x_(2,:), 's', 'color', 'b', 'linewidth', 1);
+    x_ = sys.xN(:,k) + Q_nonlin(:,:,k)^(1/2)*Math.Sphere(1,nPts2).x;
+%     plot(x_(1,:), x_(2,:), 'color', [0.3010 0.7450 0.9330], 'linewidth', 2)
+    plot(x_(1,:), x_(2,:), '-', 'color', 'b', 'linewidth', 1);
 
     %%% Proposed
     x_ = sys.xN(:,k) + Q_proposed(:,:,k)^(1/2) * Math.Sphere(1,nPts).x;
@@ -331,9 +332,9 @@ for k = round(linspace(1,length(t),4))
     plot(x_(1,:), x_(2,:), '-', 'color', [65,169,76]/255, 'linewidth', 1);
     end
     
-    %%% HJB eqn
-    x_ = sys.xN(:,k) + X{k};
-    h6 = plot(x_(1,:), x_(2,:), 'k-', 'linewidth', 2);
+%     %%% HJB eqn
+%     x_ = sys.xN(:,k) + X{k};
+%     h6 = plot(x_(1,:), x_(2,:), 'k-', 'linewidth', 2);
     
     text(sys.xN(1,k), sys.xN(2,k), ['$t=',num2str(t(k)),'$ s'],...
         'horizontalalignment', 'center', 'fontsize', 14)
