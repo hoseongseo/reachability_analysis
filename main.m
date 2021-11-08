@@ -32,12 +32,6 @@ wp = Polynomial(1,[0,0,1]);
 fp = f(xp, wp);
 t = linspace(0,1,101);
 
-% load('../210722/gmm_210819.mat')
-% load('../210722/nmpc_210819.mat')
-% load('../sos_210819.mat')
-% Q_sos = res_sos(end).step2;
-% load('../hjb_210819.mat')
-
 % dynamics
 sys0 = Dynamics.LotkaVolterraNominal(q, t); % nominal dynamics with the initial condition
 sys = Dynamics.LotkaVolterra(sys0, wMax); % system shifted to the origin
@@ -50,7 +44,7 @@ gr = createGrid(minGrid, maxGrid, nGrid);
 V0 = gr.xs{1}.*gr.xs{1}/Q(1,1) + gr.xs{2}.*gr.xs{2}/Q(2,2) - 1;
 X0 = Utils.get_level_set(gr, V0, 0.0);
 
-% solve
+% solve HJB PDE
 hjb_equation = HJBequation(sys, gr);
 V = zeros([size(V0), length(t)]);
 V(:,:,1) = V0;
@@ -113,7 +107,7 @@ ctime_nonlinopt = toc;
 %% Stochastic propagation
 tic
 P_gmm = stochastic_propagation(q, 0.0005*eye(2), wMax, t);
-ctime_stochstic = toc;
+ctime_stochastic = toc;
 
 %% Proposed
 Q_proposed = zeros(2,2,length(t));
@@ -361,14 +355,12 @@ h8 = Utils.plot_set(F_proposed, t, length(t), [65,169,76]/255, 0.3);
 for k = round(linspace(1,length(t),5))
     if k > 1
         %%% SOS
-        x_ = Q_sos^(1/2)*Math.Sphere(1,500).x;
+        x_ = Q_sos(:,:,k)^(1/2)*Math.Sphere(1,500).x;
         h3 = plot3(x_(1,:), t(k)*ones(size(x_(1,:))), x_(2,:), '-', 'color', 'r', 'linewidth', 2);
-        
         %%% Proposed
         x_ = Q_proposed(:,:,k)^(1/2) * Math.Sphere(1,500).x;
         h5 = plot3(x_(1,:), t(k)*ones(size(x_(1,:))), x_(2,:), '-', 'color', [65,169,76]/255, 'linewidth', 2);
     end
-    
     %%% HJB eqn
     x_ = X{k};
     h6 = plot3(x_(1,:), t(k)*ones(size(x_(1,:))), x_(2,:), 'k-', 'linewidth', 2);
@@ -383,11 +375,20 @@ ylim([t(1), t(end)])
 set(gca, 'xdir', 'reverse')
 camlight('left')
 legend([h7,h9,h8],...
-    '$\tilde{\mathcal{X}}(t)$',...
-    '$\mathcal{E}(Q_{sos}(t))$',...
-    '$\mathcal{E}(Q_{proposed}(t))$',...
+    'HJB PDE',...
+    'SOS program',...
+    'Proposed',...
     'location', 'northwest')
 camlight('right')
+
+%% Computation times
+disp('Computation time of the methods')
+disp(['1) Level-set: ', num2str(ctime_levelset), ' seconds.'])
+disp(['2) Linearization-based: ', num2str(ctime_linearization), ' seconds.'])
+disp(['3) SOS-program: ', num2str(ctime_sos), ' seconds.'])
+disp(['4) Nonlinear-optimization-based: ', num2str(ctime_nonlinopt), ' seconds.'])
+disp(['5) Uncertainty propagation: ', num2str(ctime_stochastic), ' seconds.'])
+disp(['6) Proposed: ', num2str(ctime_proposed), ' seconds.'])
 
 %%% remove added path
 rmpath(genpath('3rd_party/helperOC-master'))
