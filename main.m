@@ -41,7 +41,7 @@ load('../210722/nmpc_210819.mat')
 sys0 = Dynamics.LotkaVolterraNominal(q, t); % nominal dynamics with the initial condition
 sys = Dynamics.LotkaVolterra(sys0, wMax); % system shifted to the origin
 
-%% Level set
+%% Level-set method
 nGrid = [401, 401];
 minGrid = [-0.1, -0.1];
 maxGrid = [0.1, 0.1];
@@ -67,7 +67,23 @@ for i = 2:length(t)
     X{i} = Utils.get_level_set(gr, V(:,:,i), 0.0);
 end
 
-%% Linearization-based (DIRTREL)
+%% SOS-program-based method
+args.max_iter = 10;
+args.rho = 3.0;
+args.ftol = 5e-4;
+args.plot_cost = false;
+tic;
+[res_sos, cost_sos, rate_sos] = funnel_nonlinear_sos(sys, t, Q, args);
+ctime_sos = toc;
+Q_sos = res_sos(end).step2;
+
+% F_sos = zeros([size(S.x), length(t)]);
+% for i = 1:length(t)
+%     F_sos(:,:,i) = res_sos(end).step2(:,:,i)^(1/2) * S.x;
+% end
+
+
+%% Linearization-based method
 W = wMax^2;
 
 q_lin = zeros(2,length(t));
