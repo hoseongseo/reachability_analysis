@@ -77,11 +77,6 @@ tic;
 ctime_sos = toc;
 Q_sos = res_sos(end).step2;
 
-% F_sos = zeros([size(S.x), length(t)]);
-% for i = 1:length(t)
-%     F_sos(:,:,i) = res_sos(end).step2(:,:,i)^(1/2) * S.x;
-% end
-
 
 %% Linearization-based method
 W = wMax^2;
@@ -312,13 +307,13 @@ for k = round(linspace(1,length(t),4))
 %     plot(x_(1,:), x_(2,:), 'b', 'linewidth', 2)
     plot(x_(1,:), x_(2,:), 'k-', 'linewidth', 1);
     
-%     %%% SOS
-%     x_ = sys.xN(:,k) + res_sos(end).step2(:,:,k)^(1/2)*Math.Sphere(1,nPts).x;
-% %     plot(x_(1,:), x_(2,:), 'color', [237,145,33]/255, 'linewidth', 2)
-%     h3 = plot(x_(1,:), x_(2,:), '^', 'color', 'r', 'linewidth', 1);
-%     x_ = sys.xN(:,k) + res_sos(end).step2(:,:,k)^(1/2)*Math.Sphere(1,nPts2).x;
-% %     plot(x_(1,:), x_(2,:), 'color', [237,145,33]/255, 'linewidth', 2)
-%     plot(x_(1,:), x_(2,:), '-', 'color', 'r', 'linewidth', 1);
+    %%% SOS
+    x_ = sys.xN(:,k) + Q_sos(:,:,k)^(1/2)*Math.Sphere(1,nPts).x;
+%     plot(x_(1,:), x_(2,:), 'color', [237,145,33]/255, 'linewidth', 2)
+    h3 = plot(x_(1,:), x_(2,:), '^', 'color', 'r', 'linewidth', 1);
+    x_ = sys.xN(:,k) + Q_sos(:,:,k)^(1/2)*Math.Sphere(1,nPts2).x;
+%     plot(x_(1,:), x_(2,:), 'color', [237,145,33]/255, 'linewidth', 2)
+    plot(x_(1,:), x_(2,:), '-', 'color', 'r', 'linewidth', 1);
 %     
 %     %%% NMPC
 %     x_ = sys.xN(:,k) + Qres(:,:,k)^(1/2)*Math.Sphere(1,nPts).x;
