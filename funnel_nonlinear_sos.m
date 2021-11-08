@@ -1,11 +1,11 @@
-function [region, cost_hist, rate_hist] = funnel_nonlinear_sos( sys, tk, Q0, args )
+function [region, cost_hist, rate_hist, ctime_hist] = funnel_nonlinear_sos( sys, tk, Q0, args )
 % sys: dynamics
 % tk: time horizon of interest (discretized)
 % Q0: shape matrix for the initial set
 % args: extra arguments detailed as
 if nargin < 4
-    args.max_iter = 10;
-    args.rho = 5.0;
+    args.max_iter = 1;
+    args.rho = 3.0;
     args.ftol = 5e-4;
     args.plot_cost = false;
 end
@@ -37,8 +37,9 @@ rho_init = exp(args.rho*tk);
 step2_solved = false;
 cost_hist = [];
 rate_hist = [];
+ctime_hist = [];
 
-order = 2;
+order = [0,1,2];
 res = 0;
 
 region = struct('step1', [], 'step2', []);
@@ -131,7 +132,8 @@ for iter = 1:args.max_iter
             dV_ = dV_dt_ + dV_dx_'*sys.f(x, zeros(sys.Nu,1), w, tk(k));
             
             
-            expr = drho_ - dV_ - L{k}*(V_ - rho_);
+%             expr = drho_ - dV_ - L{k}*(V_ - rho_);
+            expr = drho_ - dV_ - L{k}*(rho_ - V_);
             for j = 1:nw
                 expr = expr - Lw_1{j,k}*gw{j};
             end
@@ -149,13 +151,16 @@ for iter = 1:args.max_iter
         else
             obj1 = obj1 - trace(S_*(Q0*rho_init(k)));
         end
+%         obj1 = obj1 - trace(S_);
         Vprev_ = V_;
         rhoprev_ = rho_;
     end
     
     step1 = sossetobj(step1,obj1);
-    step1 = sossolve(step1,solver_opt);
     
+%     tic;
+    step1 = sossolve(step1,solver_opt);
+%     ctime1 = toc;
 
     %% STEP 2 : Value and level (L and Lem fixed)
     step2 = sosprogram(vars);
@@ -218,7 +223,8 @@ for iter = 1:args.max_iter
             end
             dV_ = dV_dt_ + dV_dx_'*sys.f(x, zeros(sys.Nu,1), w, tk(k));
             
-            expr = drho_ - dV_ - sosgetsol(step1, L{k})*(V_ - rho_);
+%             expr = drho_ - dV_ - sosgetsol(step1, L{k})*(V_ - rho_);
+            expr = drho_ - dV_ - sosgetsol(step1, L{k})*(rho_ - V_);
             for j = 1:nw
                 expr = expr - Lw_2{j,k}*gw{j};
             end
@@ -236,12 +242,15 @@ for iter = 1:args.max_iter
         else
             obj2 = obj2 - trace(S_*(Q0*rho_init(k)));
         end
+%         obj2 = obj2 - trace(S_);
         Vprev_ = V_;
         rhoprev_ = rho_;
     end
     
     step2 = sossetobj(step2,obj2);
+%     tic
     step2 = sossolve(step2,solver_opt);
+%     ctime2 = toc;
     
     %% check cost and dcost
     cost = 0;
@@ -256,6 +265,7 @@ for iter = 1:args.max_iter
         disp(['Iteration #', num2str(iter),...
             ': cost = ', num2str(cost)])
         cost_hist = [cost_hist, cost];
+%         ctime_hist = [ctime_hist, [ctime1; ctime2]];
     else
         dec_rate = (cost_prev - cost) / cost_prev;
         disp(['Iteration #', num2str(iter),...
@@ -264,7 +274,8 @@ for iter = 1:args.max_iter
             ', rate = ', num2str(dec_rate)])
         rate_hist = [rate_hist, dec_rate];
         cost_hist = [cost_hist, cost];
-        
+%         ctime_hist = [ctime_hist, [ctime1; ctime2]];
+            
         if abs(dec_rate) < args.ftol 
             % converged, accept the last result
             res = 1; 
@@ -311,6 +322,23 @@ for iter = 1:args.max_iter
         ylabel('$rate$')
         xlabel('Iterations')
         drawnow
+        
+%         Sp = Math.Sphere(1,200);
+%         
+%         figure(2213)
+%         cla; hold on; grid on;
+%         for k = 1:length(sys.tN)
+%             tmp = sys.xN(1:2,k) + Q_step1(1:2,1:2,k)^(1/2) * Sp.x;
+%             plot(tmp(1,:), tmp(2,:), 'b', 'linewidth', 2)
+%             
+%             tmp = sys.xN(1:2,k) + Q_step2(1:2,1:2,k)^(1/2) * Sp.x;
+%             plot(tmp(1,:), tmp(2,:), 'r', 'linewidth', 2)
+%         end
+% %         for k = 1:size(args.xN,2)
+% %             tmp = args.xN(1:2,k) + args.xChar(1:2,:,k);
+% %             plot(tmp(1,:), tmp(2,:), 'k.', 'linewidth', 2)
+% %         end
+%         drawnow
     end
 end
 

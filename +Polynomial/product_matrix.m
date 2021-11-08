@@ -8,6 +8,7 @@ id2 = Polynomial.getId(I2, N);
 
 id_all = Utils.minksum(id1, id2)-1;
 id = unique(id_all);
+
 P = zeros(length(id), length(id_all));
 for i = 1:length(id)
     P(i,:) = (id_all == id(i));

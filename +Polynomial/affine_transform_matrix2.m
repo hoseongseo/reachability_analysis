@@ -35,5 +35,6 @@ for k = 1:size(I,1)
     T(:,k) = C * x_prods(k).coeff;
 end
 
+
 % max_order = sum(n,2) * ones(1,size(n,2)); % possible maximum order
 % I = integer_grid(zeros(size(n)), max_order);

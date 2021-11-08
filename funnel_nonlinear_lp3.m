@@ -27,8 +27,9 @@ for i = 1:sys.Nw
 end
 
 % domain of interest (initialized by the funnel of LTV system)
-Q_ltv = funnel_ltv(sys, t, Q0);
-region = struct('q', zeros(sys.Nx,length(t)), 'Q', Q_ltv);
+% Q_ltv = funnel_ltv(sys, t, Q0);
+% region = struct('q', zeros(sys.Nx,length(t)), 'Q', Q_ltv);
+region = struct('q', zeros(sys.Nx,length(t)), 'Q', repmat(Q0*1.5, [1,1,length(t)]));
 
 %%%%%% degrees of the approximated value functions
 N_a = [N, zeros(1,sys.Nw)]; % augmentation
@@ -72,8 +73,10 @@ M = zeros( prod(N_a+N_f+1), prod(N+1), length(t)-1 );
 for k = 1:length(t)-1
     mat = zeros(prod(N_a+N_f+1), prod(N+1));
     f_ = sys.f(xp, zeros(sys.Nu,1), wp, t(k));
+    
     for j = 1:sys.Nx
-        mat = mat + P_N_N_f * kron( eye(prod(N+1)), Polynomial.expand_matrix(N_f, f_(j).order)*f_(j).coeff ) * D(:,:,j);
+        tmp = P_N_N_f * kron( eye(prod(N+1)), Polynomial.expand_matrix(N_f, f_(j).order)*f_(j).coeff ) * D(:,:,j);
+        mat = mat + tmp;
     end
     M(:,:,k) = mat;
 end
@@ -153,6 +156,7 @@ for iter = 1:args.max_iter
                 for k = 2:num_elem
                     idx_k = (num_elem-1)*(i-1)+k;
                     cost = cost - h_quad'*(T_quad(:,:,idx_k)*c_quad_seg(:,k));
+                    
                 end
                 minimize cost
             
@@ -168,8 +172,11 @@ for iter = 1:args.max_iter
                     for k = 1:num_elem-1
                         idx_k = (num_elem-1)*(i-1)+k;
                         B_N_max\T_N_max(:,:,idx_k)*( E_N*(c_seg(:,k+1)-c_seg(:,k)) + (t(idx_k+1)-t(idx_k))*(E_N_N_f*M(:,:,idx_k)*c_seg(:,k) - E_N_N_lambda*P_N_N_lambda*kron(eye(prod(N+1)),lambda(:,idx_k))*c_seg(:,k)) ) <= 0
+%                         B_N_max_quad\T_N_max_quad(:,:,idx_k+1)*( ...
+%                             E_N_max_quad*c_quad_seg(:,k+1) - (E_N_max_quad_poly + P_N_N_gamma*kron(eye(prod(N+1)), gamma(:,idx_k)))*c_seg(:,k+1)) <= 0
                         
-                        B_N_max_quad\T_N_max_quad(:,:,idx_k+1)*(E_N_max_quad*c_quad_seg(:,k+1) - E_N_max_quad_poly*c_seg(:,k+1) - P_N_N_gamma*kron(eye(prod(N+1)), gamma(:,idx_k))*c_seg(:,k+1)) <= 0
+                        tmp = (E_N_max_quad_poly + P_N_N_gamma*kron(eye(prod(N+1)), gamma(:,idx_k)));
+                        B_N_max_quad\T_N_max_quad(:,:,idx_k+1) * (E_N_max_quad*c_quad_seg(:,k+1) - tmp*c_seg(:,k+1)) <= 0
                     end
             cvx_end
             
@@ -354,7 +361,8 @@ for iter = 1:args.max_iter
         set(gcf, 'position', [681, 557, 560, 420])
         cla; hold on; grid on;
         for k = round(linspace(1,length(t),5))
-            tmp = Q_ltv(:,:,k)^(1/2) * Utils.Sphere(1,200).x;
+%             tmp = Q_ltv(:,:,k)^(1/2) * Utils.Sphere(1,200).x;
+            tmp = region(1).Q(:,:,k)^(1/2) * Utils.Sphere(1,200).x;
             plot3(tmp(1,:), t(k)*ones(1,size(tmp,2)), tmp(2,:), 'g', 'linewidth', 2)
             
             if sum(strcmp(fieldnames(args), 'frs')) == 1

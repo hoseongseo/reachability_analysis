@@ -27,8 +27,13 @@ for k = 1:N-1
     t_ = tk(k);
     dt_ = tk(k+1) - tk(k);
     
-    A_ = sys.dfdx(zeros(sys.Nx,1), zeros(sys.Nu,1), zeros(sys.Nw,1), t_);
-    D_ = sys.dfdw(zeros(sys.Nx,1), zeros(sys.Nu,1), zeros(sys.Nw,1), t_);
+    if isfield(args, 'uN')
+        A_ = sys.dfdx(zeros(sys.Nx,1), args.uN(:,k), zeros(sys.Nw,1), t_);
+        D_ = sys.dfdw(zeros(sys.Nx,1), args.uN(:,k), zeros(sys.Nw,1), t_);
+    else
+        A_ = sys.dfdx(zeros(sys.Nx,1), zeros(sys.Nu,1), zeros(sys.Nw,1), t_);
+        D_ = sys.dfdw(zeros(sys.Nx,1), zeros(sys.Nu,1), zeros(sys.Nw,1), t_);
+    end
     TF_ = expm(A_*dt_);
     
     %%% sets due to disturbances
