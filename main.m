@@ -34,9 +34,9 @@ t = linspace(0,1,101);
 
 % load('../210722/gmm_210819.mat')
 % load('../210722/nmpc_210819.mat')
-load('../reachability_analysis/sos_210819.mat')
-Q_sos = res_sos(end).step2;
-load('../reachability_analysis/hjb_210819.mat')
+% load('../sos_210819.mat')
+% Q_sos = res_sos(end).step2;
+% load('../hjb_210819.mat')
 
 % dynamics
 sys0 = Dynamics.LotkaVolterraNominal(q, t); % nominal dynamics with the initial condition
@@ -67,7 +67,6 @@ X{1} = X0;
 for i = 2:length(t)
     X{i} = Utils.get_level_set(gr, V(:,:,i), 0.0);
 end
-
 
 %% Linearization-based method
 W = wMax^2;
@@ -283,7 +282,7 @@ for k = 1:length(t)-1
 end
 ctime_proposed = toc;
 
-%%
+%% 2D visualization
 nPts = 10;
 nPts2 = 200;
 figure(11)
@@ -291,47 +290,37 @@ set(gcf, 'position', [681,559,480,420])
 cla; hold on; grid on; axis equal; axis tight;
 for k = round(linspace(1,length(t),4))
     if k > 1
-    %%% GMM
-    P_ = P_gmm(:,:,k);
-    % draw 4.5-sigma line of Gaussian
-    tmp = sys.xN(:,k) + 4.5*P_^(1/2)*Math.Sphere(1,nPts).x; 
-%     plot(tmp(1,:), tmp(2,:), 'color', [65,169,76]/255, 'linewidth', 2)
-    h1 = plot(tmp(1,:), tmp(2,:), 'x', 'color', [237,145,33]/255, 'linewidth', 1);
-    tmp = sys.xN(:,k) + 4.5*P_^(1/2)*Math.Sphere(1,nPts2).x;
-%     plot(tmp(1,:), tmp(2,:), 'color', [65,169,76]/255, 'linewidth', 2)
-    plot(tmp(1,:), tmp(2,:), '-', 'color', [237,145,33]/255, 'linewidth', 1);
-    
-    %%% DIRTREL
-    x_ = sys.xN(:,k) + Q_lin(:,:,k)^(1/2) * Math.Sphere(1,nPts).x;
-%     plot(x_(1,:), x_(2,:), 'b', 'linewidth', 2)
-    h2 = plot(x_(1,:), x_(2,:), 'k.', 'linewidth', 1);
-    x_ = sys.xN(:,k) + Q_lin(:,:,k)^(1/2) * Math.Sphere(1,nPts2).x;
-%     plot(x_(1,:), x_(2,:), 'b', 'linewidth', 2)
-    plot(x_(1,:), x_(2,:), 'k-', 'linewidth', 1);
-    
-    %%% SOS
-    x_ = sys.xN(:,k) + Q_sos(:,:,k)^(1/2)*Math.Sphere(1,nPts).x;
-%     plot(x_(1,:), x_(2,:), 'color', [237,145,33]/255, 'linewidth', 2)
-    h3 = plot(x_(1,:), x_(2,:), '^', 'color', 'r', 'linewidth', 1);
-    x_ = sys.xN(:,k) + Q_sos(:,:,k)^(1/2)*Math.Sphere(1,nPts2).x;
-%     plot(x_(1,:), x_(2,:), 'color', [237,145,33]/255, 'linewidth', 2)
-    plot(x_(1,:), x_(2,:), '-', 'color', 'r', 'linewidth', 1);
-
-    %%% NMPC
-    x_ = sys.xN(:,k) + Q_nonlin(:,:,k)^(1/2)*Math.Sphere(1,nPts).x;
-%     plot(x_(1,:), x_(2,:), 'color', [0.3010 0.7450 0.9330], 'linewidth', 2)
-    h4 = plot(x_(1,:), x_(2,:), 's', 'color', 'b', 'linewidth', 1);
-    x_ = sys.xN(:,k) + Q_nonlin(:,:,k)^(1/2)*Math.Sphere(1,nPts2).x;
-%     plot(x_(1,:), x_(2,:), 'color', [0.3010 0.7450 0.9330], 'linewidth', 2)
-    plot(x_(1,:), x_(2,:), '-', 'color', 'b', 'linewidth', 1);
-
-    %%% Proposed
-    x_ = sys.xN(:,k) + Q_proposed(:,:,k)^(1/2) * Math.Sphere(1,nPts).x;
-%     plot(x_(1,:), x_(2,:), 'r-', 'linewidth', 2)
-    h5 = plot(x_(1,:), x_(2,:), 'o', 'color', [65,169,76]/255, 'linewidth', 1);
-    x_ = sys.xN(:,k) + Q_proposed(:,:,k)^(1/2) * Math.Sphere(1,nPts2).x;
-%     plot(x_(1,:), x_(2,:), 'r-', 'linewidth', 2)
-    plot(x_(1,:), x_(2,:), '-', 'color', [65,169,76]/255, 'linewidth', 1);
+        %%% Stochastic propagation
+        P_ = P_gmm(:,:,k);
+        %%%%% draw 4.5-sigma line of sum of Gaussians
+        tmp = sys.xN(:,k) + 4.5*P_^(1/2)*Math.Sphere(1,nPts).x;
+        h1 = plot(tmp(1,:), tmp(2,:), 'x', 'color', [237,145,33]/255, 'linewidth', 1);
+        tmp = sys.xN(:,k) + 4.5*P_^(1/2)*Math.Sphere(1,nPts2).x;
+        plot(tmp(1,:), tmp(2,:), '-', 'color', [237,145,33]/255, 'linewidth', 1);
+        
+        %%% Linearization-based method
+        x_ = sys.xN(:,k) + Q_lin(:,:,k)^(1/2) * Math.Sphere(1,nPts).x;
+        h2 = plot(x_(1,:), x_(2,:), 'k.', 'linewidth', 1);
+        x_ = sys.xN(:,k) + Q_lin(:,:,k)^(1/2) * Math.Sphere(1,nPts2).x;
+        plot(x_(1,:), x_(2,:), 'k-', 'linewidth', 1);
+        
+        %%% SOS-program-based method
+        x_ = sys.xN(:,k) + Q_sos(:,:,k)^(1/2)*Math.Sphere(1,nPts).x;
+        h3 = plot(x_(1,:), x_(2,:), '^', 'color', 'r', 'linewidth', 1);
+        x_ = sys.xN(:,k) + Q_sos(:,:,k)^(1/2)*Math.Sphere(1,nPts2).x;
+        plot(x_(1,:), x_(2,:), '-', 'color', 'r', 'linewidth', 1);
+        
+        %%% Nonlinear-optimization-based method
+        x_ = sys.xN(:,k) + Q_nonlin(:,:,k)^(1/2)*Math.Sphere(1,nPts).x;
+        h4 = plot(x_(1,:), x_(2,:), 's', 'color', 'b', 'linewidth', 1);
+        x_ = sys.xN(:,k) + Q_nonlin(:,:,k)^(1/2)*Math.Sphere(1,nPts2).x;
+        plot(x_(1,:), x_(2,:), '-', 'color', 'b', 'linewidth', 1);
+        
+        %%% Proposed method
+        x_ = sys.xN(:,k) + Q_proposed(:,:,k)^(1/2) * Math.Sphere(1,nPts).x;
+        h5 = plot(x_(1,:), x_(2,:), 'o', 'color', [65,169,76]/255, 'linewidth', 1);
+        x_ = sys.xN(:,k) + Q_proposed(:,:,k)^(1/2) * Math.Sphere(1,nPts2).x;
+        plot(x_(1,:), x_(2,:), '-', 'color', [65,169,76]/255, 'linewidth', 1);
     end
     
     %%% HJB eqn
@@ -354,11 +343,11 @@ ylabel('$x_2$')
 set(gca, 'xlim', [0.75, 1.25])
 set(gca, 'ylim', [0.83, 1.3])
 
-%%
-F_nonlin = cell(1,length(t));
+%% 3D visualization
+F_proposed = cell(1,length(t));
 F_sos = cell(1,length(t));
 for k = 1:length(t)
-    F_nonlin{k} = Q_proposed(:,:,k)^(1/2) * Math.Sphere(1,500).x;
+    F_proposed{k} = Q_proposed(:,:,k)^(1/2) * Math.Sphere(1,500).x;
     F_sos{k} = res_sos(end).step2(:,:,k)^(1/2)*Math.Sphere(1,500).x;
 end
 
@@ -367,51 +356,22 @@ cla; hold on; grid on; axis tight;
 set(gcf, 'position', [681,559,480,420])
 h7 = Utils.plot_set(X, t, length(t), 'k', 0.3);
 h9 = Utils.plot_set(F_sos, t, length(t), 'r', 0.3);
-h8 = Utils.plot_set(F_nonlin, t, length(t), [65,169,76]/255, 0.3);
+h8 = Utils.plot_set(F_proposed, t, length(t), [65,169,76]/255, 0.3);
 
 for k = round(linspace(1,length(t),5))
-    
     if k > 1
-%     %%% GMM
-%     mu_ = wTraj(1,k)*muTraj(:,1,k)+...
-%         wTraj(2,k)*muTraj(:,2,k)+...
-%         wTraj(3,k)*muTraj(:,3,k)+...
-%         wTraj(4,k)*muTraj(:,4,k);
-%     P_ = wTraj(1,k)^2*P_1(:,:,k)+...
-%         wTraj(2,k)^2*P_2(:,:,k)+...
-%         wTraj(3,k)^2*P_3(:,:,k)+...
-%         wTraj(4,k)^2*P_4(:,:,k);
-%     x_ = 4.5*P_^(1/2)*Math.Sphere(1,30).x;
-% %     plot3(x_(1,:), t(k)*ones(size(x_(1,:))), x_(2,:), 'color', [237,145,33]/255, 'linewidth', 1)
-%     h1 = plot3(x_(1,:), t(k)*ones(size(x_(1,:))), x_(2,:), 'x-', 'color', [237,145,33]/255, 'linewidth', 1);
-    
-%     %%% DIRTREL
-%     x_ = Q_dirt(:,:,k)^(1/2) * Math.Sphere(1,30).x;
-% %     plot3(x_(1,:), t(k)*ones(size(x_(1,:))), x_(2,:), 'b', 'linewidth', 1)
-%     h2 = plot3(x_(1,:), t(k)*ones(size(x_(1,:))), x_(2,:), 'k--', 'linewidth', 1);
-    
-    %%% SOS
-    x_ = res_sos(end).step2(:,:,k)^(1/2)*Math.Sphere(1,500).x;
-%     plot3(x_(1,:), t(k)*ones(size(x_(1,:))), x_(2,:), 'color', [65,169,76]/255, 'linewidth', 1)
-    h3 = plot3(x_(1,:), t(k)*ones(size(x_(1,:))), x_(2,:), '-', 'color', 'r', 'linewidth', 2);
-    
-%     %%% NMPC
-%     x_ = Qres(:,:,k)^(1/2)*Math.Sphere(1,30).x;
-% %     plot3(x_(1,:), t(k)*ones(size(x_(1,:))), x_(2,:), 'color', [0.3010 0.7450 0.9330], 'linewidth', 1)
-%     h4 = plot3(x_(1,:), t(k)*ones(size(x_(1,:))), x_(2,:), '-s', 'color', 'b', 'linewidth', 1);
-    
-    %%% Proposed
-    x_ = Q_proposed(:,:,k)^(1/2) * Math.Sphere(1,500).x;
-%     plot3(x_(1,:), t(k)*ones(size(x_(1,:))), x_(2,:), 'r-', 'linewidth', 1)
-    h5 = plot3(x_(1,:), t(k)*ones(size(x_(1,:))), x_(2,:), '-', 'color', [65,169,76]/255, 'linewidth', 2);
+        %%% SOS
+        x_ = Q_sos^(1/2)*Math.Sphere(1,500).x;
+        h3 = plot3(x_(1,:), t(k)*ones(size(x_(1,:))), x_(2,:), '-', 'color', 'r', 'linewidth', 2);
+        
+        %%% Proposed
+        x_ = Q_proposed(:,:,k)^(1/2) * Math.Sphere(1,500).x;
+        h5 = plot3(x_(1,:), t(k)*ones(size(x_(1,:))), x_(2,:), '-', 'color', [65,169,76]/255, 'linewidth', 2);
     end
     
     %%% HJB eqn
     x_ = X{k};
     h6 = plot3(x_(1,:), t(k)*ones(size(x_(1,:))), x_(2,:), 'k-', 'linewidth', 2);
-    
-%     text(sys.xN(1,k), sys.xN(2,k), ['$t=',num2str(t(k)),'$ s'],...
-%         'horizontalalignment', 'center', 'fontsize', 14)
 end
 xlabel('$\tilde{x}_1$')
 ylabel('$t$ [s]')
@@ -429,7 +389,7 @@ legend([h7,h9,h8],...
     'location', 'northwest')
 camlight('right')
 
-%% remove added path
+%%% remove added path
 rmpath(genpath('3rd_party/helperOC-master'))
 rmpath(genpath('3rd_party/ToolboxLS'))
 rmpath(genpath('3rd_party/SOSTOOLS'))
