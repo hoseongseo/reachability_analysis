@@ -1,5 +1,16 @@
 clear; close all; clc;
 
+addpath(genpath('3rd_party/helperOC-master')) % HJB equation solver
+addpath(genpath('3rd_party/ToolboxLS')) % HJB equation solver
+addpath(genpath('3rd_party/SOSTOOLS')) % SOS programming solver
+addpath(genpath('3rd_party/SeDuMi_1_3')) % SDP solver (required for SOSTOOLS)
+
+set(groot, 'DefaultFigureColor', 'w')
+set(groot, 'DefaultLegendInterpreter', 'latex')
+set(groot, 'DefaultTextInterpreter', 'latex')
+set(groot, 'DefaultAxesTickLabelInterpreter', 'latex')
+set(groot, 'DefaultAxesFontSize', 16)
+
 % original dynamics
 f = @(x,w)...
     [(w+3).*x(1,:).*(1-x(2,:));...
@@ -15,7 +26,7 @@ q = [1.2; 1.1];
 Q = 0.05^2*eye(2);
 wMax = 0.2;
 
-% polynomial expression
+% polynomial expression of dynamics
 xp = [Polynomial(1,[1,0,0]); Polynomial(1,[0,1,0])];
 wp = Polynomial(1,[0,0,1]);
 fp = f(xp, wp);
@@ -26,24 +37,50 @@ load('../210722/nmpc_210819.mat')
 %load('../reachability_analysis/sos_210819.mat')
 %load('../reachability_analysis/hjb_210819.mat')
 
+% dynamics
 sys0 = Dynamics.LotkaVolterraNominal(q, t); % nominal dynamics with the initial condition
 sys = Dynamics.LotkaVolterra(sys0, wMax); % system shifted to the origin
 
+%% Level set
+nGrid = [401, 401];
+minGrid = [-0.1, -0.1];
+maxGrid = [0.1, 0.1];
+gr = createGrid(minGrid, maxGrid, nGrid);
+V0 = gr.xs{1}.*gr.xs{1}/Q(1,1) + gr.xs{2}.*gr.xs{2}/Q(2,2) - 1;
+X0 = Utils.get_level_set(gr, V0, 0.0);
 
-%% DIRTREL
+% solve
+hjb_equation = HJBequation(sys, gr);
+V = zeros([size(V0), length(t)]);
+V(:,:,1) = V0;
+
+tic
+for i = 1:length(t)-1
+    V(:,:,i+1) = hjb_equation.solve(V(:,:,i), t(i), t(i+1));
+end
+ctime_levelset = toc;
+
+% extract zero-level set
+X = cell(1,length(t));
+X{1} = X0;
+for i = 2:length(t)
+    X{i} = Utils.get_level_set(gr, V(:,:,i), 0.0);
+end
+
+%% Linearization-based (DIRTREL)
 W = wMax^2;
 
-q_dirt = zeros(2,length(t));
-q_dirt(:,1) = q;
-Q_dirt = zeros(2,2,length(t));
-Q_dirt(:,:,1) = Q;
-H_dirt = zeros(2,length(t));
+q_lin = zeros(2,length(t));
+q_lin(:,1) = q;
+Q_lin = zeros(2,2,length(t));
+Q_lin(:,:,1) = Q;
+H_lin = zeros(2,length(t));
 I = eye(2);
 tic
 for k = 1:length(t)-1
-    q_ = q_dirt(:,k);
-    Q_ = Q_dirt(:,:,k);
-    H_ = H_dirt(:,k);
+    q_ = q_lin(:,k);
+    Q_ = Q_lin(:,:,k);
+    H_ = H_lin(:,k);
     
     dt_ = t(k+1)-t(k);
     A0_ = dfdx(q_, 0);
@@ -53,20 +90,20 @@ for k = 1:length(t)-1
     Ad_ = expm(A0_*dt_);
     Dd_ = A0_\(Ad_-I)*D0_;
 
-    Q_dirt(:,:,k+1) = Ad_*Q_*Ad_' + Dd_*H_'*Ad_' + Ad_*H_*Dd_' + Dd_*W*Dd_';
-    H_dirt(:,k+1) = Ad_*H_ + Dd_*W;
+    Q_lin(:,:,k+1) = Ad_*Q_*Ad_' + Dd_*H_'*Ad_' + Ad_*H_*Dd_' + Dd_*W*Dd_';
+    H_lin(:,k+1) = Ad_*H_ + Dd_*W;
     
-    q_dirt(:,k+1) = q_ + dt_*f0_;
+    q_lin(:,k+1) = q_ + dt_*f0_;
 end
 ctime_linearization = toc;
 
 %% Proposed
-Q_nonlin = zeros(2,2,length(t));
-Q_nonlin(:,:,1) = Q;
-q_nonlin = q;
+Q_proposed = zeros(2,2,length(t));
+Q_proposed(:,:,1) = Q;
+q_proposed = q;
 
-Q_basis_nonlin = cell(1,length(t));
-Q_basis_nonlin{1} = Q_nonlin(:,:,1);
+Q_basis_proposed = cell(1,length(t));
+Q_basis_proposed{1} = Q_proposed(:,:,1);
 
 lambda_order = Polynomial.integer_grid([1,1,1]);
 lambda_max_order = max(lambda_order,[],1);
@@ -133,8 +170,8 @@ tic
 for k = 1:length(t)-1
     % nominal values
     dt_ = t(k+1)-t(k);
-    Q_ = Q_nonlin(:,:,k);
-    q_ = q_nonlin(:,k);
+    Q_ = Q_proposed(:,:,k);
+    q_ = q_proposed(:,k);
     A0_ = dfdx(q_, 0);
     D0_ = dfdw(q_, 0);
     f0_ = f(q_, 0);
@@ -208,11 +245,11 @@ for k = 1:length(t)-1
     end
     
     % prepare for basis
-    N_basis_prev = size(Q_basis_nonlin{k},3);
+    N_basis_prev = size(Q_basis_proposed{k},3);
     N_basis = N_basis_prev;
     N_basis = N_basis + 1 + 2;
     Q_basis_ = zeros(2,2,N_basis);
-    Q_basis_(:,:,1:N_basis_prev) = Q_basis_nonlin{k};
+    Q_basis_(:,:,1:N_basis_prev) = Q_basis_proposed{k};
     
     % effect of disturbance
     Q_basis_(:,:,N_basis_prev+(1:(1+2))) = Nk_;
@@ -221,10 +258,9 @@ for k = 1:length(t)-1
     end
     
     % composition
-    Q_basis_nonlin{k+1} = Q_basis_;
-    Q_nonlin(:,:,k+1) = Math.Ellipsoid.MVOE( Q_basis_ );
-    q_nonlin(:,k+1) = q_ + dt_*(A_*q_ + f0_ - A0_*q_ + V_\c_);
-    
+    Q_basis_proposed{k+1} = Q_basis_;
+    Q_proposed(:,:,k+1) = Math.Ellipsoid.MVOE( Q_basis_ );
+    q_proposed(:,k+1) = q_ + dt_*(A_*q_ + f0_ - A0_*q_ + V_\c_);
 end
 ctime_proposed = toc;
 
@@ -236,51 +272,51 @@ set(gcf, 'position', [681,559,480,420])
 cla; hold on; grid on; axis equal; axis tight;
 for k = round(linspace(1,length(t),4))
     if k > 1
-    %%% GMM
-    mu_ = wTraj(1,k)*muTraj(:,1,k)+...
-        wTraj(2,k)*muTraj(:,2,k)+...
-        wTraj(3,k)*muTraj(:,3,k)+...
-        wTraj(4,k)*muTraj(:,4,k);
-    P_ = wTraj(1,k)^2*P_1(:,:,k)+...
-        wTraj(2,k)^2*P_2(:,:,k)+...
-        wTraj(3,k)^2*P_3(:,:,k)+...
-        wTraj(4,k)^2*P_4(:,:,k);
-    tmp = sys.xN(:,k) + 4.5*P_^(1/2)*Math.Sphere(1,nPts).x;
-%     plot(tmp(1,:), tmp(2,:), 'color', [65,169,76]/255, 'linewidth', 2)
-    h1 = plot(tmp(1,:), tmp(2,:), 'x', 'color', [237,145,33]/255, 'linewidth', 1);
-    tmp = sys.xN(:,k) + 4.5*P_^(1/2)*Math.Sphere(1,nPts2).x;
-%     plot(tmp(1,:), tmp(2,:), 'color', [65,169,76]/255, 'linewidth', 2)
-    plot(tmp(1,:), tmp(2,:), '-', 'color', [237,145,33]/255, 'linewidth', 1);
+%     %%% GMM
+%     mu_ = wTraj(1,k)*muTraj(:,1,k)+...
+%         wTraj(2,k)*muTraj(:,2,k)+...
+%         wTraj(3,k)*muTraj(:,3,k)+...
+%         wTraj(4,k)*muTraj(:,4,k);
+%     P_ = wTraj(1,k)^2*P_1(:,:,k)+...
+%         wTraj(2,k)^2*P_2(:,:,k)+...
+%         wTraj(3,k)^2*P_3(:,:,k)+...
+%         wTraj(4,k)^2*P_4(:,:,k);
+%     tmp = sys.xN(:,k) + 4.5*P_^(1/2)*Math.Sphere(1,nPts).x;
+% %     plot(tmp(1,:), tmp(2,:), 'color', [65,169,76]/255, 'linewidth', 2)
+%     h1 = plot(tmp(1,:), tmp(2,:), 'x', 'color', [237,145,33]/255, 'linewidth', 1);
+%     tmp = sys.xN(:,k) + 4.5*P_^(1/2)*Math.Sphere(1,nPts2).x;
+% %     plot(tmp(1,:), tmp(2,:), 'color', [65,169,76]/255, 'linewidth', 2)
+%     plot(tmp(1,:), tmp(2,:), '-', 'color', [237,145,33]/255, 'linewidth', 1);
     
     %%% DIRTREL
-    x_ = sys.xN(:,k) + Q_dirt(:,:,k)^(1/2) * Math.Sphere(1,nPts).x;
+    x_ = sys.xN(:,k) + Q_lin(:,:,k)^(1/2) * Math.Sphere(1,nPts).x;
 %     plot(x_(1,:), x_(2,:), 'b', 'linewidth', 2)
     h2 = plot(x_(1,:), x_(2,:), 'k.', 'linewidth', 1);
-    x_ = sys.xN(:,k) + Q_dirt(:,:,k)^(1/2) * Math.Sphere(1,nPts2).x;
+    x_ = sys.xN(:,k) + Q_lin(:,:,k)^(1/2) * Math.Sphere(1,nPts2).x;
 %     plot(x_(1,:), x_(2,:), 'b', 'linewidth', 2)
     plot(x_(1,:), x_(2,:), 'k-', 'linewidth', 1);
     
-    %%% SOS
-    x_ = sys.xN(:,k) + res_sos(end).step2(:,:,k)^(1/2)*Math.Sphere(1,nPts).x;
-%     plot(x_(1,:), x_(2,:), 'color', [237,145,33]/255, 'linewidth', 2)
-    h3 = plot(x_(1,:), x_(2,:), '^', 'color', 'r', 'linewidth', 1);
-    x_ = sys.xN(:,k) + res_sos(end).step2(:,:,k)^(1/2)*Math.Sphere(1,nPts2).x;
-%     plot(x_(1,:), x_(2,:), 'color', [237,145,33]/255, 'linewidth', 2)
-    plot(x_(1,:), x_(2,:), '-', 'color', 'r', 'linewidth', 1);
-    
-    %%% NMPC
-    x_ = sys.xN(:,k) + Qres(:,:,k)^(1/2)*Math.Sphere(1,nPts).x;
-%     plot(x_(1,:), x_(2,:), 'color', [0.3010 0.7450 0.9330], 'linewidth', 2)
-    h4 = plot(x_(1,:), x_(2,:), 's', 'color', 'b', 'linewidth', 1);
-    x_ = sys.xN(:,k) + Qres(:,:,k)^(1/2)*Math.Sphere(1,nPts2).x;
-%     plot(x_(1,:), x_(2,:), 'color', [0.3010 0.7450 0.9330], 'linewidth', 2)
-    plot(x_(1,:), x_(2,:), '-', 'color', 'b', 'linewidth', 1);
+%     %%% SOS
+%     x_ = sys.xN(:,k) + res_sos(end).step2(:,:,k)^(1/2)*Math.Sphere(1,nPts).x;
+% %     plot(x_(1,:), x_(2,:), 'color', [237,145,33]/255, 'linewidth', 2)
+%     h3 = plot(x_(1,:), x_(2,:), '^', 'color', 'r', 'linewidth', 1);
+%     x_ = sys.xN(:,k) + res_sos(end).step2(:,:,k)^(1/2)*Math.Sphere(1,nPts2).x;
+% %     plot(x_(1,:), x_(2,:), 'color', [237,145,33]/255, 'linewidth', 2)
+%     plot(x_(1,:), x_(2,:), '-', 'color', 'r', 'linewidth', 1);
+%     
+%     %%% NMPC
+%     x_ = sys.xN(:,k) + Qres(:,:,k)^(1/2)*Math.Sphere(1,nPts).x;
+% %     plot(x_(1,:), x_(2,:), 'color', [0.3010 0.7450 0.9330], 'linewidth', 2)
+%     h4 = plot(x_(1,:), x_(2,:), 's', 'color', 'b', 'linewidth', 1);
+%     x_ = sys.xN(:,k) + Qres(:,:,k)^(1/2)*Math.Sphere(1,nPts2).x;
+% %     plot(x_(1,:), x_(2,:), 'color', [0.3010 0.7450 0.9330], 'linewidth', 2)
+%     plot(x_(1,:), x_(2,:), '-', 'color', 'b', 'linewidth', 1);
 
     %%% Proposed
-    x_ = sys.xN(:,k) + Q_nonlin(:,:,k)^(1/2) * Math.Sphere(1,nPts).x;
+    x_ = sys.xN(:,k) + Q_proposed(:,:,k)^(1/2) * Math.Sphere(1,nPts).x;
 %     plot(x_(1,:), x_(2,:), 'r-', 'linewidth', 2)
     h5 = plot(x_(1,:), x_(2,:), 'o', 'color', [65,169,76]/255, 'linewidth', 1);
-    x_ = sys.xN(:,k) + Q_nonlin(:,:,k)^(1/2) * Math.Sphere(1,nPts2).x;
+    x_ = sys.xN(:,k) + Q_proposed(:,:,k)^(1/2) * Math.Sphere(1,nPts2).x;
 %     plot(x_(1,:), x_(2,:), 'r-', 'linewidth', 2)
     plot(x_(1,:), x_(2,:), '-', 'color', [65,169,76]/255, 'linewidth', 1);
     end
@@ -293,22 +329,23 @@ for k = round(linspace(1,length(t),4))
         'horizontalalignment', 'center', 'fontsize', 14)
 end
 legend([h6,h2,h3,h4,h1,h5],...
-    '$\mathcal{X}(t)$',...
-    '$q(t)+\mathcal{E}(Q_{lin}(t))$',...
-    '$q(t)+\mathcal{E}(Q_{sos}(t))$',...
-    '$q(t)+\mathcal{E}(Q_{nonlin}(t))$',...
-    '$q(t)+\mathcal{E}(Q_{uncert}(t))$',...
-    '$q(t)+\mathcal{E}(Q_{proposed}(t))$',...
+    'HJB PDE',...
+    'Linearization',...
+    'SOS Program',...
+    'Nonlinear optimization',...
+    'Uncertainty propagation',...
+    'Proposed',...
     'location', 'southeast')
 xlabel('$x_1$')
 ylabel('$x_2$')
 set(gca, 'xlim', [0.75, 1.25])
 set(gca, 'ylim', [0.83, 1.3])
+
 %%
 F_nonlin = cell(1,length(t));
 F_sos = cell(1,length(t));
 for k = 1:length(t)
-    F_nonlin{k} = Q_nonlin(:,:,k)^(1/2) * Math.Sphere(1,500).x;
+    F_nonlin{k} = Q_proposed(:,:,k)^(1/2) * Math.Sphere(1,500).x;
     F_sos{k} = res_sos(end).step2(:,:,k)^(1/2)*Math.Sphere(1,500).x;
 end
 
@@ -351,7 +388,7 @@ for k = round(linspace(1,length(t),5))
 %     h4 = plot3(x_(1,:), t(k)*ones(size(x_(1,:))), x_(2,:), '-s', 'color', 'b', 'linewidth', 1);
     
     %%% Proposed
-    x_ = Q_nonlin(:,:,k)^(1/2) * Math.Sphere(1,500).x;
+    x_ = Q_proposed(:,:,k)^(1/2) * Math.Sphere(1,500).x;
 %     plot3(x_(1,:), t(k)*ones(size(x_(1,:))), x_(2,:), 'r-', 'linewidth', 1)
     h5 = plot3(x_(1,:), t(k)*ones(size(x_(1,:))), x_(2,:), '-', 'color', [65,169,76]/255, 'linewidth', 2);
     end
@@ -378,3 +415,9 @@ legend([h7,h9,h8],...
     '$\mathcal{E}(Q_{proposed}(t))$',...
     'location', 'northwest')
 camlight('right')
+
+%% remove added path
+rmpath(genpath('3rd_party/helperOC-master'))
+rmpath(genpath('3rd_party/ToolboxLS'))
+rmpath(genpath('3rd_party/SOSTOOLS'))
+rmpath(genpath('3rd_party/SeDuMi_1_3'))
