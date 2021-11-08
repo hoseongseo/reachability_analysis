@@ -67,29 +67,17 @@ for i = 2:length(t)
     X{i} = Utils.get_level_set(gr, V(:,:,i), 0.0);
 end
 
-%% SOS-program-based method
-args.max_iter = 10;
-args.rho = 3.0;
-args.ftol = 5e-4;
-args.plot_cost = false;
-tic;
-[res_sos, cost_sos, rate_sos] = funnel_nonlinear_sos(sys, t, Q, args);
-ctime_sos = toc;
-Q_sos = res_sos(end).step2;
-
 
 %% Linearization-based method
 W = wMax^2;
 
-q_lin = zeros(2,length(t));
-q_lin(:,1) = q;
 Q_lin = zeros(2,2,length(t));
 Q_lin(:,:,1) = Q;
 H_lin = zeros(2,length(t));
 I = eye(2);
 tic
 for k = 1:length(t)-1
-    q_ = q_lin(:,k);
+    q_ = sys.xN(:,k);
     Q_ = Q_lin(:,:,k);
     H_ = H_lin(:,k);
     
@@ -104,9 +92,20 @@ for k = 1:length(t)-1
     Q_lin(:,:,k+1) = Ad_*Q_*Ad_' + Dd_*H_'*Ad_' + Ad_*H_*Dd_' + Dd_*W*Dd_';
     H_lin(:,k+1) = Ad_*H_ + Dd_*W;
     
-    q_lin(:,k+1) = q_ + dt_*f0_;
+%     q_lin(:,k+1) = q_ + dt_*f0_;
 end
 ctime_linearization = toc;
+
+%% SOS-program-based method
+args.max_iter = 10;
+args.rho = 3.0;
+args.ftol = 5e-4;
+args.plot_cost = false;
+tic;
+[res_sos, cost_sos, rate_sos] = funnel_nonlinear_sos(sys, t, Q, args);
+ctime_sos = toc;
+
+Q_sos = res_sos(end).step2;
 
 %% Proposed
 Q_proposed = zeros(2,2,length(t));
