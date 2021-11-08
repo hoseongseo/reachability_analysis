@@ -101,15 +101,20 @@ args.rho = 3.0;
 args.ftol = 5e-4;
 args.plot_cost = false;
 tic;
-[res_sos, cost_sos, rate_sos] = funnel_sos(sys, t, Q, args);
+[res_sos, cost_sos, rate_sos] = sos_program(sys, t, Q, args);
 ctime_sos = toc;
 
 Q_sos = res_sos(end).step2;
 
 %% Nonlinear-optimization-based method
 tic
-Q_nonlin = funnel_nonlinear_opt(sys, t, Q, wMax);
+Q_nonlin = nonlinear_optimization(sys, t, Q, wMax);
 ctime_nonlinopt = toc;
+
+%% Stochastic propagation
+tic
+P_gmm = stochastic_propagation(q, 0.0005*eye(2), wMax, t);
+ctime_stochstic = toc;
 
 %% Proposed
 Q_proposed = zeros(2,2,length(t));
@@ -286,21 +291,15 @@ set(gcf, 'position', [681,559,480,420])
 cla; hold on; grid on; axis equal; axis tight;
 for k = round(linspace(1,length(t),4))
     if k > 1
-%     %%% GMM
-%     mu_ = wTraj(1,k)*muTraj(:,1,k)+...
-%         wTraj(2,k)*muTraj(:,2,k)+...
-%         wTraj(3,k)*muTraj(:,3,k)+...
-%         wTraj(4,k)*muTraj(:,4,k);
-%     P_ = wTraj(1,k)^2*P_1(:,:,k)+...
-%         wTraj(2,k)^2*P_2(:,:,k)+...
-%         wTraj(3,k)^2*P_3(:,:,k)+...
-%         wTraj(4,k)^2*P_4(:,:,k);
-%     tmp = sys.xN(:,k) + 4.5*P_^(1/2)*Math.Sphere(1,nPts).x;
-% %     plot(tmp(1,:), tmp(2,:), 'color', [65,169,76]/255, 'linewidth', 2)
-%     h1 = plot(tmp(1,:), tmp(2,:), 'x', 'color', [237,145,33]/255, 'linewidth', 1);
-%     tmp = sys.xN(:,k) + 4.5*P_^(1/2)*Math.Sphere(1,nPts2).x;
-% %     plot(tmp(1,:), tmp(2,:), 'color', [65,169,76]/255, 'linewidth', 2)
-%     plot(tmp(1,:), tmp(2,:), '-', 'color', [237,145,33]/255, 'linewidth', 1);
+    %%% GMM
+    P_ = P_gmm(:,:,k);
+    % draw 4.5-sigma line of Gaussian
+    tmp = sys.xN(:,k) + 4.5*P_^(1/2)*Math.Sphere(1,nPts).x; 
+%     plot(tmp(1,:), tmp(2,:), 'color', [65,169,76]/255, 'linewidth', 2)
+    h1 = plot(tmp(1,:), tmp(2,:), 'x', 'color', [237,145,33]/255, 'linewidth', 1);
+    tmp = sys.xN(:,k) + 4.5*P_^(1/2)*Math.Sphere(1,nPts2).x;
+%     plot(tmp(1,:), tmp(2,:), 'color', [65,169,76]/255, 'linewidth', 2)
+    plot(tmp(1,:), tmp(2,:), '-', 'color', [237,145,33]/255, 'linewidth', 1);
     
     %%% DIRTREL
     x_ = sys.xN(:,k) + Q_lin(:,:,k)^(1/2) * Math.Sphere(1,nPts).x;
@@ -310,13 +309,13 @@ for k = round(linspace(1,length(t),4))
 %     plot(x_(1,:), x_(2,:), 'b', 'linewidth', 2)
     plot(x_(1,:), x_(2,:), 'k-', 'linewidth', 1);
     
-%     %%% SOS
-%     x_ = sys.xN(:,k) + Q_sos(:,:,k)^(1/2)*Math.Sphere(1,nPts).x;
-% %     plot(x_(1,:), x_(2,:), 'color', [237,145,33]/255, 'linewidth', 2)
-%     h3 = plot(x_(1,:), x_(2,:), '^', 'color', 'r', 'linewidth', 1);
-%     x_ = sys.xN(:,k) + Q_sos(:,:,k)^(1/2)*Math.Sphere(1,nPts2).x;
-% %     plot(x_(1,:), x_(2,:), 'color', [237,145,33]/255, 'linewidth', 2)
-%     plot(x_(1,:), x_(2,:), '-', 'color', 'r', 'linewidth', 1);
+    %%% SOS
+    x_ = sys.xN(:,k) + Q_sos(:,:,k)^(1/2)*Math.Sphere(1,nPts).x;
+%     plot(x_(1,:), x_(2,:), 'color', [237,145,33]/255, 'linewidth', 2)
+    h3 = plot(x_(1,:), x_(2,:), '^', 'color', 'r', 'linewidth', 1);
+    x_ = sys.xN(:,k) + Q_sos(:,:,k)^(1/2)*Math.Sphere(1,nPts2).x;
+%     plot(x_(1,:), x_(2,:), 'color', [237,145,33]/255, 'linewidth', 2)
+    plot(x_(1,:), x_(2,:), '-', 'color', 'r', 'linewidth', 1);
 
     %%% NMPC
     x_ = sys.xN(:,k) + Q_nonlin(:,:,k)^(1/2)*Math.Sphere(1,nPts).x;
