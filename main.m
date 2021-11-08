@@ -34,8 +34,9 @@ t = linspace(0,1,101);
 
 % load('../210722/gmm_210819.mat')
 % load('../210722/nmpc_210819.mat')
-%load('../reachability_analysis/sos_210819.mat')
-%load('../reachability_analysis/hjb_210819.mat')
+load('../reachability_analysis/sos_210819.mat')
+Q_sos = res_sos(end).step2;
+load('../reachability_analysis/hjb_210819.mat')
 
 % dynamics
 sys0 = Dynamics.LotkaVolterraNominal(q, t); % nominal dynamics with the initial condition
@@ -106,7 +107,9 @@ ctime_sos = toc;
 Q_sos = res_sos(end).step2;
 
 %% Nonlinear-optimization-based method
+tic
 Q_nonlin = funnel_nonlinear_opt(sys, t, Q, wMax);
+ctime_nonlinopt = toc;
 
 %% Proposed
 Q_proposed = zeros(2,2,length(t));
@@ -332,9 +335,9 @@ for k = round(linspace(1,length(t),4))
     plot(x_(1,:), x_(2,:), '-', 'color', [65,169,76]/255, 'linewidth', 1);
     end
     
-%     %%% HJB eqn
-%     x_ = sys.xN(:,k) + X{k};
-%     h6 = plot(x_(1,:), x_(2,:), 'k-', 'linewidth', 2);
+    %%% HJB eqn
+    x_ = sys.xN(:,k) + X{k};
+    h6 = plot(x_(1,:), x_(2,:), 'k-', 'linewidth', 2);
     
     text(sys.xN(1,k), sys.xN(2,k), ['$t=',num2str(t(k)),'$ s'],...
         'horizontalalignment', 'center', 'fontsize', 14)
