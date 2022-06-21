@@ -29,11 +29,9 @@ wMax = 0.2;
 % polynomial expression of dynamics
 xp = [Polynomial(1,[1,0,0]); Polynomial(1,[0,1,0])];
 wp = Polynomial(1,[0,0,1]);
-t = linspace(0,1,101);
+t = linspace(0,1,51);
 fp = @(tk) f(xp, wp, tk);
 
-
-%%
 % %% Linearization-based method
 % W = wMax^2;
 % 
@@ -81,7 +79,7 @@ fp = @(tk) f(xp, wp, tk);
 % P_gmm = stochastic_propagation(q, 0.0005*eye(2), wMax, t);
 % ctime_stochastic = toc;
 
-%% Proposed
+% Proposed
 Q_proposed = zeros(2,2,length(t));
 Q_proposed(:,:,1) = Q;
 q_proposed = q;
@@ -151,6 +149,7 @@ n_const = size(B_const,1);
 n_lambda = size(B_lambda,1);
 prob.Aineq = zeros( n_const+n_const+n_lambda, 2+2+1+n_lambda );
 prob.bineq = zeros( n_const+n_const+n_lambda, 1);
+
 
 tic
 for k = 1:length(t)-1
@@ -249,7 +248,7 @@ for k = 1:length(t)-1
     q_proposed(:,k+1) = q_ + dt_*(A_*q_ + f0_ - A0_*q_ + V_\c_);
 end
 ctime_proposed = toc;
-
+ctime_proposed
 % Q_discrete = Q_proposed;
 % q_discrete = q_proposed;
 %% Level-set method

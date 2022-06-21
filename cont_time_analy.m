@@ -74,7 +74,7 @@ E_prod = Polynomial.expand_matrix(const_max_order, prod_full_order);
 % decision variable: [b(1); b(2); a(nx); d(nw); lambda_1; lambda_2];
 clear prob
 prob.solver = 'linprog';
-prob.options = optimoptions('linprog', 'Display', 'none');
+prob.options = optimoptions('linprog', 'Display', 'none', 'OptimalityTolerance', 1e-3);
 
 prob.f = ...
     [1;...
@@ -105,8 +105,10 @@ n_lambda = size(B_lambda,1);
 prob.Aineq = zeros( n_const+n_const+n_lambda, 2+2+1+n_lambda );
 prob.bineq = zeros( n_const+n_const+n_lambda, 1);
 
+B_const_inv = inv(B_const);
+B_lambda_inv = inv(B_lambda);
 
-%%
+
 tic
 for k = 1:length(t)-1
 
@@ -154,15 +156,20 @@ x_region_coeff_ = E_region*x_region_.coeff;
 prob.const1_Amat(:,5+(1:n_lambda)) = E_prod*P*kron(x_region_coeff_, E_lambda);
 prob.const2_Amat(:,5+(1:n_lambda)) = E_prod*P*kron(x_region_coeff_, E_lambda);
 
-prob.Aineq(1:n_const,:) = (B_const\T_const_)*prob.const1_Amat;
-prob.Aineq(n_const+(1:n_const),:) = (B_const\T_const_)*prob.const2_Amat;
-prob.Aineq(2*n_const+(1:n_lambda),:) = (B_lambda\T_lambda_)*prob.lambda1_Amat;
+% prob.Aineq(1:n_const,:) = (B_const\T_const_)*prob.const1_Amat;
+% prob.Aineq(n_const+(1:n_const),:) = (B_const\T_const_)*prob.const2_Amat;
+% prob.Aineq(2*n_const+(1:n_lambda),:) = (B_lambda\T_lambda_)*prob.lambda1_Amat;
+prob.Aineq(1:n_const,:) = (B_const_inv*T_const_)*prob.const1_Amat;
+prob.Aineq(n_const+(1:n_const),:) = (B_const_inv*T_const_)*prob.const2_Amat;
+prob.Aineq(2*n_const+(1:n_lambda),:) = (B_lambda_inv*T_lambda_)*prob.lambda1_Amat;
 
 for j = 1:2
     xi_coeff_ = Polynomial.expand_matrix(xi_max_order,xi_prime_(j).order)*xi_prime_(j).coeff;
     
-    prob.bineq(1:n_const) = -(B_const\T_const_)*(E_xi*xi_coeff_);
-    prob.bineq(n_const+(1:n_const)) = (B_const\T_const_)*(E_xi*xi_coeff_);
+%     prob.bineq(1:n_const) = -(B_const\T_const_)*(E_xi*xi_coeff_);
+%     prob.bineq(n_const+(1:n_const)) = (B_const\T_const_)*(E_xi*xi_coeff_);
+    prob.bineq(1:n_const) = -(B_const_inv*T_const_)*(E_xi*xi_coeff_);
+    prob.bineq(n_const+(1:n_const)) = (B_const_inv*T_const_)*(E_xi*xi_coeff_);
     
     opt_ = linprog(prob);
     Aprime_(j,:) = opt_(3:4);
@@ -183,6 +190,7 @@ Nk_ = zeros(2,2,1+2);
 for j = 1:size(D_,2)
     M_ = (D_(:,j)*D_(:,j)');
     N_ = lyap(A_, expm(-A_*dt_)*M_*expm(-A_'*dt_) - M_);
+%     N_ = (M_ + expm(-A_*dt_)*M_*expm(-A_'*dt_))*0.5*dt_; % approximation
     Nk_(:,:,j) = dt_*(wMax_(j)*wMax_(j))*N_;
 end
 
@@ -201,11 +209,12 @@ end
 
 % composition
 Q_basis_proposed{k+1} = Q_basis_;
-Q_proposed(:,:,k+1) = Math.Ellipsoid.MVOE( Q_basis_ );
+Q_proposed(:,:,k+1) = Math.Ellipsoid.MTOE( Q_basis_ );
 q_proposed(:,k+1) = q_ + dt_*(A_*q_ + f0_ - A0_*q_ + V_\c_);
 
 end
 ctime_proposed = toc;
+ctime_proposed
 
 %% 2D visualization
 nPts = 10;

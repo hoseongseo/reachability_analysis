@@ -275,7 +275,7 @@ for k = 1:length(t)-1
     q_proposed(:,k+1) = q_ + dt_*(A_*q_ + f0_ - A0_*q_ + V_\c_);
 end
 ctime_proposed = toc;
-
+ctime_proposed
 %% 2D visualization
 nPts = 10;
 nPts2 = 200;
